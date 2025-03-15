@@ -1,0 +1,310 @@
+<html>
+<head>
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+ <style>
+ body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: black; }
+ canvas { width: 100%; height: 100%; }
+ </style>
+</head>
+<body>
+ <canvas id="gameCanvas" width="800" height="600"></canvas>
+ <script>
+ // Get canvas and context
+ const canvas = document.getElementById('gameCanvas');
+ const ctx = canvas.getContext('2d');
+
+ // Ship object
+ let ship = {
+ x: 400,
+ y: 300,
+ vx: 0,
+ vy: 0,
+ angle: 0,
+ thrust: false,
+ radius: 15
+ };
+
+ // Arrays for game objects
+ let asteroids = [];
+ let lasers = [];
+
+ // Keyboard input state
+ let keys = {
+ left: false,
+ right: false,
+ up: false,
+ space: false
+ };
+
+ // Touch input state
+ let isTouching = false;
+ let touchX, touchY;
+ let touchStartTime;
+
+ // Firing cooldown
+ let lastFireTime = 0;
+ const fireCooldown = 200; // milliseconds
+
+ // Game constants
+ const acceleration = 0.1;
+ const rotationSpeed = 0.1;
+
+ // Resize canvas to fit screen while maintaining aspect ratio
+ function resizeCanvas() {
+ const aspectRatio = 800 / 600;
+ const windowAspectRatio = window.innerWidth / window.innerHeight;
+ if (windowAspectRatio > aspectRatio) {
+ canvas.style.height = window.innerHeight + 'px';
+ canvas.style.width = (window.innerHeight * aspectRatio) + 'px';
+ } else {
+ canvas.style.width = window.innerWidth + 'px';
+ canvas.style.height = (window.innerWidth / aspectRatio) + 'px';
+ }
+ }
+ window.addEventListener('resize', resizeCanvas);
+ resizeCanvas();
+
+ // Keyboard event listeners
+ document.addEventListener('keydown', (e) => {
+ if (e.key === 'ArrowLeft') keys.left = true;
+ else if (e.key === 'ArrowRight') keys.right = true;
+ else if (e.key === 'ArrowUp') keys.up = true;
+ else if (e.key === ' ') keys.space = true;
+ });
+ document.addEventListener('keyup', (e) => {
+ if (e.key === 'ArrowLeft') keys.left = false;
+ else if (e.key === 'ArrowRight') keys.right = false;
+ else if (e.key === 'ArrowUp') keys.up = false;
+ else if (e.key === ' ') keys.space = false;
+ });
+
+ // Touch event listeners
+ canvas.addEventListener('touchstart', (e) => {
+ e.preventDefault();
+ isTouching = true;
+ touchStartTime = Date.now();
+ const touch = e.touches[0];
+ const rect = canvas.getBoundingClientRect();
+ const scaleX = canvas.width / rect.width;
+ const scaleY = canvas.height / rect.height;
+ touchX = (touch.clientX - rect.left) * scaleX;
+ touchY = (touch.clientY - rect.top) * scaleY;
+ });
+
+ canvas.addEventListener('touchmove', (e) => {
+ e.preventDefault();
+ const touch = e.touches[0];
+ const rect = canvas.getBoundingClientRect();
+ const scaleX = canvas.width / rect.width;
+ const scaleY = canvas.height / rect.height;
+ touchX = (touch.clientX - rect.left) * scaleX;
+ touchY = (touch.clientY - rect.top) * scaleY;
+ });
+
+ canvas.addEventListener('touchend', (e) => {
+ e.preventDefault();
+ isTouching = false;
+ const duration = Date.now() - touchStartTime;
+ if (duration < 200) { // Tap if touch duration < 200ms
+ tryToFire();
+ }
+ });
+
+ // Create an asteroid with random shape
+ function createAsteroid(x, y, size) {
+ const asteroid = {
+ x: x,
+ y: y,
+ vx: (Math.random() - 0.5) * 2,
+ vy: (Math.random() - 0.5) * 2,
+ size: size,
+ radius: size * 10,
+ points: []
+ };
+ const numPoints = 8;
+ for (let i = 0; i < numPoints; i++) {
+ const angle = (i / numPoints) * 2 * Math.PI;
+ const r = asteroid.radius + (Math.random() - 0.5) * 10;
+ const px = Math.cos(angle) * r;
+ const py = Math.sin(angle) * r;
+ asteroid.points.push({ x: px, y: py });
+ }
+ return asteroid;
+ }
+
+ // Fire a laser from the ship
+ function fireLaser() {
+ const laserSpeed = 5;
+ const lx = ship.x;
+ const ly = ship.y;
+ const lvx = ship.vx + Math.cos(ship.angle) * laserSpeed;
+ const lvy = ship.vy + Math.sin(ship.angle) * laserSpeed;
+ lasers.push({ x: lx, y: ly, vx: lvx, vy: lvy });
+ }
+
+ // Attempt to fire with cooldown
+ function tryToFire() {
+ if (Date.now() - lastFireTime > fireCooldown) {
+ fireLaser();
+ lastFireTime = Date.now();
+ }
+ }
+
+ // Wrap objects around screen edges
+ function wrapAround(obj) {
+ if (obj.x < 0) obj.x += 800;
+ if (obj.x > 800) obj.x -= 800;
+ if (obj.y < 0) obj.y += 600;
+ if (obj.y > 600) obj.y -= 600;
+ }
+
+ // Update game state
+ function update() {
+ // Handle input
+ if (isTouching) {
+ const dx = touchX - ship.x;
+ const dy = touchY - ship.y;
+ ship.angle = Math.atan2(dy, dx);
+ ship.thrust = true;
+ } else {
+ if (keys.left) ship.angle -= rotationSpeed;
+ if (keys.right) ship.angle += rotationSpeed;
+ ship.thrust = keys.up;
+ }
+
+ // Apply thrust
+ if (ship.thrust) {
+ ship.vx += Math.cos(ship.angle) * acceleration;
+ ship.vy += Math.sin(ship.angle) * acceleration;
+ }
+
+ // Move ship
+ ship.x += ship.vx;
+ ship.y += ship.vy;
+ wrapAround(ship);
+
+ // Move asteroids
+ asteroids.forEach(asteroid => {
+ asteroid.x += asteroid.vx;
+ asteroid.y += asteroid.vy;
+ wrapAround(asteroid);
+ });
+
+ // Move and check lasers
+ lasers = lasers.filter(laser => {
+ laser.x += laser.vx;
+ laser.y += laser.vy;
+ if (laser.x < 0 || laser.x > 800 || laser.y < 0 || laser.y > 600) {
+ return false; // Remove if off-screen
+ }
+ for (let asteroid of asteroids) {
+ const dx = laser.x - asteroid.x;
+ const dy = laser.y - asteroid.y;
+ if (dx * dx + dy * dy < asteroid.radius * asteroid.radius) {
+ if (asteroid.size > 1) {
+ const newSize = asteroid.size - 1;
+ asteroids.push(createAsteroid(asteroid.x, asteroid.y, newSize));
+ asteroids.push(createAsteroid(asteroid.x, asteroid.y, newSize));
+ }
+ asteroid.toRemove = true;
+ return false; // Remove laser on hit
+ }
+ }
+ return true;
+ });
+
+ // Remove destroyed asteroids
+ asteroids = asteroids.filter(asteroid => !asteroid.toRemove);
+
+ // Check ship-asteroid collisions
+ for (let asteroid of asteroids) {
+ const dx = ship.x - asteroid.x;
+ const dy = ship.y - asteroid.y;
+ const distance = Math.sqrt(dx * dx + dy * dy);
+ if (distance < ship.radius + asteroid.radius) {
+ resetGame();
+ break;
+ }
+ }
+
+ // Fire on keyboard input
+ if (keys.space) tryToFire();
+ }
+
+ // Render game objects
+ function render() {
+ ctx.clearRect(0, 0, 800, 600);
+ ctx.strokeStyle = 'white';
+
+ // Draw ship
+ ctx.save();
+ ctx.translate(ship.x, ship.y);
+ ctx.rotate(ship.angle);
+ ctx.beginPath();
+ ctx.moveTo(15, 0); // Nose
+ ctx.lineTo(-10, 10);
+ ctx.lineTo(-10, -10);
+ ctx.closePath();
+ ctx.stroke();
+ if (ship.thrust) { // Thrust flame
+ ctx.beginPath();
+ ctx.moveTo(-10, 7);
+ ctx.lineTo(-15, 0);
+ ctx.lineTo(-10, -7);
+ ctx.stroke();
+ }
+ ctx.restore();
+
+ // Draw asteroids
+ asteroids.forEach(asteroid => {
+ ctx.save();
+ ctx.translate(asteroid.x, asteroid.y);
+ ctx.beginPath();
+ asteroid.points.forEach((p, i) => {
+ if (i === 0) ctx.moveTo(p.x, p.y);
+ else ctx.lineTo(p.x, p.y);
+ });
+ ctx.closePath();
+ ctx.stroke();
+ ctx.restore();
+ });
+
+ // Draw lasers
+ ctx.fillStyle = 'white';
+ lasers.forEach(laser => {
+ ctx.beginPath();
+ ctx.arc(laser.x, laser.y, 2, 0, 2 * Math.PI);
+ ctx.fill();
+ });
+ }
+
+ // Game loop
+ function gameLoop() {
+ update();
+ render();
+ requestAnimationFrame(gameLoop);
+ }
+
+ // Reset game state
+ function resetGame() {
+ ship.x = 400;
+ ship.y = 300;
+ ship.vx = 0;
+ ship.vy = 0;
+ ship.angle = 0;
+ asteroids = [];
+ lasers = [];
+ for (let i = 0; i < 5; i++) {
+ const x = Math.random() * 800;
+ const y = Math.random() * 600;
+ asteroids.push(createAsteroid(x, y, 3));
+ }
+ }
+
+ // Initialize and start game
+ resetGame();
+ gameLoop();
+ </script>
+</body>
+</html>
+​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
