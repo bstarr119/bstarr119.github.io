@@ -270,4 +270,3 @@ function showResults() {
  document.getElementById('start-screen').style.display = 'block';
  };
 }
-​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
