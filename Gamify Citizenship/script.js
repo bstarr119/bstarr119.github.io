@@ -1,4 +1,4 @@
-// All 100 civics test questions
+// All 100 civics test questions with updated answers as of March 15, 2025
 const questions = [
   { text: "What is the supreme law of the land?", answers: ["the Constitution"], numRequired: 1 },
   { text: "What does the Constitution do?", answers: ["sets up the government", "defines the government", "protects basic rights of Americans"], numRequired: 1 },
@@ -19,7 +19,7 @@ const questions = [
   { text: "What are the two parts of the U.S. Congress?", answers: ["the Senate and House of Representatives"], numRequired: 1 },
   { text: "How many U.S. Senators are there?", answers: ["100"], numRequired: 1 },
   { text: "We elect a U.S. Senator for how many years?", answers: ["6"], numRequired: 1 },
-  { text: "Who is one of your state’s U.S. Senators now?", answers: ["Answers vary; e.g., Chuck Schumer (NY)"], numRequired: 1 },
+  { text: "Who is one of your state’s U.S. Senators now?", answers: ["Answers vary; e.g., Alex Padilla (CA)"], numRequired: 1 },
   { text: "The House of Representatives has how many voting members?", answers: ["435"], numRequired: 1 },
   { text: "We elect a U.S. Representative for how many years?", answers: ["2"], numRequired: 1 },
   { text: "Name your U.S. Representative.", answers: ["Answers vary; e.g., Nancy Pelosi (CA)"], numRequired: 1 },
@@ -27,8 +27,8 @@ const questions = [
   { text: "Why do some states have more Representatives than other states?", answers: ["because of the state’s population", "because they have more people", "because some states have more people"], numRequired: 1 },
   { text: "We elect a President for how many years?", answers: ["4"], numRequired: 1 },
   { text: "In what month do we vote for President?", answers: ["November"], numRequired: 1 },
-  { text: "What is the name of the President of the United States now?", answers: ["Joe Biden"], numRequired: 1 },
-  { text: "What is the name of the Vice President of the United States now?", answers: ["Kamala Harris"], numRequired: 1 },
+  { text: "What is the name of the President of the United States now?", answers: ["Donald Trump"], numRequired: 1 },
+  { text: "What is the name of the Vice President of the United States now?", answers: ["J.D. Vance"], numRequired: 1 },
   { text: "If the President can no longer serve, who becomes President?", answers: ["the Vice President"], numRequired: 1 },
   { text: "If both the President and the Vice President can no longer serve, who becomes President?", answers: ["the Speaker of the House"], numRequired: 1 },
   { text: "Who is the Commander in Chief of the military?", answers: ["the President"], numRequired: 1 },
@@ -45,7 +45,7 @@ const questions = [
   { text: "Who is the Governor of your state now?", answers: ["Answers vary; e.g., Gavin Newsom (CA)"], numRequired: 1 },
   { text: "What is the capital of your state?", answers: ["Answers vary; e.g., Sacramento (CA)"], numRequired: 1 },
   { text: "What are the two major political parties in the United States?", answers: ["Democratic and Republican"], numRequired: 1 },
-  { text: "What is the political party of the President now?", answers: ["Democratic"], numRequired: 1 },
+  { text: "What is the political party of the President now?", answers: ["Republican"], numRequired: 1 },
   { text: "What is the name of the Speaker of the House of Representatives now?", answers: ["Mike Johnson"], numRequired: 1 },
   { text: "There are four amendments to the Constitution about who can vote. Describe one of them.", answers: ["Citizens eighteen (18) and older can vote.", "You don’t have to pay (a poll tax) to vote.", "Any citizen can vote. (Women and men can vote.)", "A male citizen of any race can vote."], numRequired: 1 },
   { text: "What is one responsibility that is only for United States citizens?", answers: ["serve on a jury", "vote in a federal election"], numRequired: 1 },
@@ -220,7 +220,13 @@ document.getElementById('submit-answer').addEventListener('click', () => {
   feedback.textContent = isCorrect ? 'Correct!' : `Incorrect. Correct answer: ${question.answers.join(', ')}`;
   feedback.className = isCorrect ? 'correct' : 'incorrect';
 
-  if (isCorrect) score++;
+  // Trigger animations
+  if (isCorrect) {
+    triggerCorrectAnimation();
+    score++;
+  } else {
+    triggerIncorrectAnimation();
+  }
 
   setTimeout(() => {
     currentQuestionIndex++;
@@ -229,7 +235,7 @@ document.getElementById('submit-answer').addEventListener('click', () => {
     } else {
       showResults();
     }
-  }, 1500); // Delay to allow feedback to be seen
+  }, 2000); // Increased delay to enjoy animations
 });
 
 // Check if the user's answer is correct
@@ -243,6 +249,35 @@ function checkAnswer(question, userAnswer) {
     const selectedCorrect = userAnswers.filter(ua => correctAnswers.includes(ua));
     return selectedCorrect.length === question.numRequired && userAnswers.length === question.numRequired;
   }
+}
+
+// Trigger confetti animation for correct answers
+function triggerCorrectAnimation() {
+  const container = document.querySelector('.container');
+  const animationDiv = document.createElement('div');
+  animationDiv.className = 'correct-animation';
+  container.appendChild(animationDiv);
+
+  for (let i = 0; i < 20; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = `${Math.random() * 100}%`;
+    confetti.style.backgroundColor = ['#ffd700', '#00ff00', '#0000ff'][Math.floor(Math.random() * 3)]; // Gold, green, blue
+    confetti.style.animationDelay = `${Math.random() * 0.5}s`;
+    animationDiv.appendChild(confetti);
+  }
+
+  setTimeout(() => animationDiv.remove(), 2000);
+}
+
+// Trigger explosion animation for incorrect answers
+function triggerIncorrectAnimation() {
+  const container = document.querySelector('.container');
+  const animationDiv = document.createElement('div');
+  animationDiv.className = 'incorrect-animation';
+  container.appendChild(animationDiv);
+
+  setTimeout(() => animationDiv.remove(), 500);
 }
 
 // Display results and handle level progression
