@@ -1,41 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <meta charset="UTF-8">
- <meta name="viewport" content="width=device-width, initial-scale=1.0">
- <title>US Citizenship Civics Challenge</title>
- <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>US Citizenship Civics Challenge</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
- <header>
- <h1>US Citizenship Civics Challenge</h1>
- <nav>
- <button id="quiz-mode">Quiz Mode</button>
- <button id="practice-mode">Practice Mode</button>
- <select id="category-select" style="display: none;">
- <option value="" disabled selected>Select a Category</option>
- <option value="Government">American Government</option>
- <option value="History">American History</option>
- <option value="Civics">Integrated Civics</option>
- </select>
- </nav>
- </header>
- <main>
- <div id="question-card" style="display: none;">
- <div id="question-header">
- <span id="question-number"></span>
- <h2 id="question-text"></h2>
- </div>
- <div id="options"></div>
- <button id="submit-button">Submit</button>
- </div>
- <div id="feedback" style="display: none;"></div>
- <div id="result" style="display: none;"></div>
- </main>
- <footer>
- <p>Visit <a href="https://www.uscis.gov">uscis.gov</a> for more information.</p>
- </footer>
- <script src="script.js"></script>
+    <header>
+        <h1>US Citizenship Civics Challenge</h1>
+    </header>
+    <main>
+        <div id="question-card">
+            <h2 id="question-text"></h2>
+            <div id="options"></div>
+            <button id="submit-button">Submit</button>
+        </div>
+        <div id="feedback"></div>
+    </main>
+    <footer>
+        <button id="quiz-mode">Quiz Mode (Multiple Choice)</button>
+        <button id="practice-mode">Practice Mode</button>
+        <button id="fill-in-blank-mode" disabled>Fill-in-the-Blank Mode</button>
+        <a href="https://www.uscis.gov/citizenship" target="_blank">Learn More</a>
+    </footer>
+    <script src="script.js"></script>
 </body>
 </html>
-​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
+​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
