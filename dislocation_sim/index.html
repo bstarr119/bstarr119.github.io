@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Dislocation Simulation with Curvature</title>
+    <title>Interactive Grain Boundary Simulation</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,14 +58,14 @@
     </style>
 </head>
 <body>
-    <h1>Interactive Dislocation Simulation with Curvature</h1>
+    <h1>Interactive Grain Boundary Simulation</h1>
     <div id="simulation">
         <canvas id="dislocationCanvas" width="500" height="400"></canvas>
         <div id="controls">
-            <label for="curvature">Lattice Curvature (degrees): <span id="curvatureValue">0</span></label>
-            <input type="range" id="curvature" min="0" max="90" value="0">
+            <label for="angle">Misorientation Angle (degrees): <span id="angleValue">0</span></label>
+            <input type="range" id="angle" min="0" max="30" value="0">
             <label for="burgers">Burgers Vector Magnitude: <span id="burgersValue">1</span></label>
-            <input type="number" id="burgers" min="1" value="1">
+            <input type="number" id="burgers" min="0.1" step="0.1" value="1">
             <button onclick="drawDislocations()">Update Simulation</button>
         </div>
     </div>
@@ -73,14 +73,17 @@
     <script>
         const canvas = document.getElementById('dislocationCanvas');
         const ctx = canvas.getContext('2d');
-        const curvatureSlider = document.getElementById('curvature');
+        const angleSlider = document.getElementById('angle');
         const burgersInput = document.getElementById('burgers');
-        const curvatureValue = document.getElementById('curvatureValue');
+        const angleValue = document.getElementById('angleValue');
         const burgersValue = document.getElementById('burgersValue');
+        const W = canvas.width;
+        const H = canvas.height;
+        const latticeSpacing = 50;
 
         // Update displayed values and redraw on input change
-        curvatureSlider.addEventListener('input', () => {
-            curvatureValue.textContent = curvatureSlider.value;
+        angleSlider.addEventListener('input', () => {
+            angleValue.textContent = angleSlider.value;
             drawDislocations();
         });
         burgersInput.addEventListener('input', () => {
@@ -88,90 +91,112 @@
             drawDislocations();
         });
 
-        // Draw the lattice grid with curvature
-        function drawLattice(thetaMaxRad) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const W = canvas.width;
-            const H = canvas.height;
-            const step = 50;
+        // Draw the lattice for two grains
+        function drawLattice(thetaDeg) {
+            const thetaRad = thetaDeg * Math.PI / 180;
+            const m = Math.tan(thetaRad);
 
-            // Draw horizontal lines (kept straight for simplicity)
-            for (let j = 0; j <= H; j += step) {
+            ctx.clearRect(0, 0, W, H);
+
+            // Grain 1 (left): vertical lines
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, W / 2, H);
+            ctx.clip();
+            for (let i = 0; i <= W / latticeSpacing; i++) {
+                const x = i * latticeSpacing;
+                if (x < W / 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, H);
+                    ctx.strokeStyle = 'lightgray';
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+
+            // Grain 2 (right): tilted lines
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(W / 2, 0, W / 2, H);
+            ctx.clip();
+            for (let k = -10; k <= 10; k++) {
+                const c = k * latticeSpacing - m * (W / 2);
+                const yLeft = m * (W / 2) + c;
+                const yRight = m * W + c;
                 ctx.beginPath();
-                ctx.moveTo(0, j);
-                ctx.lineTo(W, j);
+                ctx.moveTo(W / 2, yLeft);
+                ctx.lineTo(W, yRight);
                 ctx.strokeStyle = 'lightgray';
                 ctx.stroke();
             }
-
-            // Draw vertical lines with tilt based on curvature
-            for (let i = 0; i <= W / step; i++) {
-                const x_i = i * step;
-                // Calculate local rotation angle theta_i
-                const theta_i = (thetaMaxRad / W) * (x_i - W / 2);
-                const tanTheta = Math.tan(theta_i);
-                const x_bottom = x_i - (H / 2) * tanTheta;
-                const x_top = x_i + (H / 2) * tanTheta;
-                ctx.beginPath();
-                ctx.moveTo(x_bottom, 0);
-                ctx.lineTo(x_top, H);
-                ctx.strokeStyle = 'lightgray';
-                ctx.stroke();
-            }
+            ctx.restore();
         }
 
-        // Draw an edge dislocation
-        function drawDislocation(x, y) {
+        // Draw a dislocation with extra half-plane
+        function drawDislocation(x, y, b) {
+            const scale = 20;
+            const halfPlaneLength = 30;
+
+            // Dislocation line
             ctx.beginPath();
-            ctx.moveTo(x, y - 20);
-            ctx.lineTo(x, y + 20); // Vertical line representing edge dislocation
+            ctx.moveTo(x - 10, y);
+            ctx.lineTo(x + 10, y);
             ctx.strokeStyle = 'red';
             ctx.lineWidth = 2;
             ctx.stroke();
-        }
 
-        // Draw the Burgers vector
-        function drawBurgersVector(x, y, magnitude) {
+            // Burgers vector arrow
             ctx.beginPath();
             ctx.moveTo(x, y);
-            ctx.lineTo(x + magnitude * 20, y); // Scaled for visibility
+            ctx.lineTo(x + b * scale, y);
             ctx.strokeStyle = 'blue';
             ctx.lineWidth = 2;
             ctx.stroke();
-            // Add arrowhead
             ctx.beginPath();
-            ctx.moveTo(x + magnitude * 20, y);
-            ctx.lineTo(x + magnitude * 20 - 5, y - 5);
-            ctx.lineTo(x + magnitude * 20 - 5, y + 5);
+            ctx.moveTo(x + b * scale, y);
+            ctx.lineTo(x + b * scale - 5, y - 3);
+            ctx.lineTo(x + b * scale - 5, y + 3);
             ctx.fillStyle = 'blue';
             ctx.fill();
-        }
 
-        // Calculate number of dislocations based on total rotation and Burgers vector
-        function calculateDislocations(thetaMaxRad, b) {
-            const latticeSpacing = 50; // pixels
-            const b_pixels = b * latticeSpacing; // Burgers vector in pixels
-            // Number of dislocations = total rotation / Burgers vector (adjusted for canvas scale)
-            const N = Math.floor(thetaMaxRad / (b_pixels / canvas.width));
-            return Math.min(N, 8); // Cap at 8 for visibility
-        }
-
-        // Main function to update the simulation
-        function drawDislocations() {
-            const thetaMaxDeg = parseFloat(curvatureSlider.value);
-            const thetaMaxRad = thetaMaxDeg * Math.PI / 180;
-            const burgers = parseInt(burgersInput.value) || 1; // Default to 1 if invalid
-
-            drawLattice(thetaMaxRad);
-
-            const numDislocations = calculateDislocations(thetaMaxRad, burgers);
-
-            for (let i = 1; i <= numDislocations; i++) {
-                const x = 50 + i * 50; // Position dislocations evenly
-                const y = 200; // Center vertically
-                drawDislocation(x, y);
-                drawBurgersVector(x, y, burgers);
+            // Extra half-plane (vertical line in Grain 1, above dislocation)
+            if (x === W / 2) {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y - halfPlaneLength);
+                ctx.strokeStyle = 'green';
+                ctx.lineWidth = 1;
+                ctx.stroke();
             }
+        }
+
+        // Main drawing function
+        function drawDislocations() {
+            const thetaDeg = parseFloat(angleSlider.value);
+            const thetaRad = thetaDeg * Math.PI / 180;
+            const b = parseFloat(burgersInput.value) || 1;
+            const maxAngleDeg = parseFloat(angleSlider.max);
+
+            drawLattice(thetaDeg);
+
+            // Calculate number of dislocations
+            const N = Math.max(1, Math.floor((H * thetaRad) / (b * latticeSpacing)));
+            const spacing = H / (N + 1);
+
+            // Draw dislocations and extra half-planes
+            for (let i = 1; i <= N; i++) {
+                const y = i * spacing;
+                drawDislocation(W / 2, y, b);
+            }
+
+            // Labels
+            ctx.font = '16px Arial';
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'center';
+            ctx.fillText('Grain 1', W / 4, H / 2);
+            ctx.fillText('Grain 2', 3 * W / 4, H / 2);
+            ctx.fillText(`Misorientation Angle: ${thetaDeg}°`, W / 2, 20);
         }
 
         // Initial draw
