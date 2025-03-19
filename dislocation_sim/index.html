@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Dislocation Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+        }
+        #simulation {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 900px;
+            margin-top: 20px;
+        }
+        canvas {
+            border: 1px solid #333;
+            background-color: white;
+        }
+        #controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="range"], input[type="number"] {
+            width: 100%;
+        }
+        button {
+            padding: 10px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive Dislocation Simulation</h1>
+    <div id="simulation">
+        <canvas id="dislocationCanvas" width="500" height="400"></canvas>
+        <div id="controls">
+            <label for="curvature">Lattice Curvature (degrees): <span id="curvatureValue">0</span></label>
+            <input type="range" id="curvature" min="0" max="90" value="0">
+            <label for="burgers">Burgers Vector Magnitude: <span id="burgersValue">1</span></label>
+            <input type="number" id="burgers" min="1" value="1">
+            <button onclick="drawDislocations()">Update Simulation</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('dislocationCanvas');
+        const ctx = canvas.getContext('2d');
+        const curvatureSlider = document.getElementById('curvature');
+        const burgersInput = document.getElementById('burgers');
+        const curvatureValue = document.getElementById('curvatureValue');
+        const burgersValue = document.getElementById('burgersValue');
+
+        // Update displayed values when inputs change
+        curvatureSlider.addEventListener('input', () => {
+            curvatureValue.textContent = curvatureSlider.value;
+            drawDislocations();
+        });
+        burgersInput.addEventListener('input', () => {
+            burgersValue.textContent = burgersInput.value;
+            drawDislocations();
+        });
+
+        // Draw the lattice grid
+        function drawLattice() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            for (let i = 50; i < canvas.width; i += 50) {
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+            }
+            for (let j = 50; j < canvas.height; j += 50) {
+                ctx.moveTo(0, j);
+                ctx.lineTo(canvas.width, j);
+            }
+            ctx.strokeStyle = 'lightgray';
+            ctx.stroke();
+        }
+
+        // Draw an edge dislocation
+        function drawDislocation(x, y) {
+            ctx.beginPath();
+            ctx.moveTo(x, y - 20);
+            ctx.lineTo(x, y + 20); // Vertical line for edge dislocation
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Draw the Burgers vector
+        function drawBurgersVector(x, y, magnitude) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + magnitude * 20, y); // Scaled for visibility
+            ctx.strokeStyle = 'blue';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            // Add arrowhead
+            ctx.beginPath();
+            ctx.moveTo(x + magnitude * 20, y);
+            ctx.lineTo(x + magnitude * 20 - 5, y - 5);
+            ctx.lineTo(x + magnitude * 20 - 5, y + 5);
+            ctx.fillStyle = 'blue';
+            ctx.fill();
+        }
+
+        // Calculate GND density (simplified)
+        function calculateGND(curvature, burgers) {
+            const distance = 50; // Lattice spacing in pixels
+            // GND density = curvature (radians) / (Burgers vector * distance)
+            return (curvature * Math.PI / 180) / (burgers * distance);
+        }
+
+        // Main function to update the simulation
+        function drawDislocations() {
+            drawLattice();
+            const curvature = parseInt(curvatureSlider.value);
+            const burgers = parseInt(burgersInput.value) || 1; // Default to 1 if invalid
+            const gndDensity = calculateGND(curvature, burgers);
+            const numDislocations = Math.min(Math.floor(gndDensity * 1000), 8); // Scale and cap for visibility
+
+            for (let i = 1; i <= numDislocations; i++) {
+                const x = 50 + i * 50; // Space dislocations evenly
+                const y = 200; // Center vertically
+                drawDislocation(x, y);
+                drawBurgersVector(x, y, burgers);
+            }
+        }
+
+        // Initial draw
+        drawDislocations();
+    </script>
+</body>
+</html>
+​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
