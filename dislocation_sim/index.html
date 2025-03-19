@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Dislocation Simulation</title>
+    <title>Interactive Dislocation Simulation with Curvature</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -58,7 +58,7 @@
     </style>
 </head>
 <body>
-    <h1>Interactive Dislocation Simulation</h1>
+    <h1>Interactive Dislocation Simulation with Curvature</h1>
     <div id="simulation">
         <canvas id="dislocationCanvas" width="500" height="400"></canvas>
         <div id="controls">
@@ -78,7 +78,7 @@
         const curvatureValue = document.getElementById('curvatureValue');
         const burgersValue = document.getElementById('burgersValue');
 
-        // Update displayed values when inputs change
+        // Update displayed values and redraw on input change
         curvatureSlider.addEventListener('input', () => {
             curvatureValue.textContent = curvatureSlider.value;
             drawDislocations();
@@ -88,27 +88,43 @@
             drawDislocations();
         });
 
-        // Draw the lattice grid
-        function drawLattice() {
+        // Draw the lattice grid with curvature
+        function drawLattice(thetaMaxRad) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.beginPath();
-            for (let i = 50; i < canvas.width; i += 50) {
-                ctx.moveTo(i, 0);
-                ctx.lineTo(i, canvas.height);
-            }
-            for (let j = 50; j < canvas.height; j += 50) {
+            const W = canvas.width;
+            const H = canvas.height;
+            const step = 50;
+
+            // Draw horizontal lines (kept straight for simplicity)
+            for (let j = 0; j <= H; j += step) {
+                ctx.beginPath();
                 ctx.moveTo(0, j);
-                ctx.lineTo(canvas.width, j);
+                ctx.lineTo(W, j);
+                ctx.strokeStyle = 'lightgray';
+                ctx.stroke();
             }
-            ctx.strokeStyle = 'lightgray';
-            ctx.stroke();
+
+            // Draw vertical lines with tilt based on curvature
+            for (let i = 0; i <= W / step; i++) {
+                const x_i = i * step;
+                // Calculate local rotation angle theta_i
+                const theta_i = (thetaMaxRad / W) * (x_i - W / 2);
+                const tanTheta = Math.tan(theta_i);
+                const x_bottom = x_i - (H / 2) * tanTheta;
+                const x_top = x_i + (H / 2) * tanTheta;
+                ctx.beginPath();
+                ctx.moveTo(x_bottom, 0);
+                ctx.lineTo(x_top, H);
+                ctx.strokeStyle = 'lightgray';
+                ctx.stroke();
+            }
         }
 
         // Draw an edge dislocation
         function drawDislocation(x, y) {
             ctx.beginPath();
             ctx.moveTo(x, y - 20);
-            ctx.lineTo(x, y + 20); // Vertical line for edge dislocation
+            ctx.lineTo(x, y + 20); // Vertical line representing edge dislocation
             ctx.strokeStyle = 'red';
             ctx.lineWidth = 2;
             ctx.stroke();
@@ -131,23 +147,27 @@
             ctx.fill();
         }
 
-        // Calculate GND density (simplified)
-        function calculateGND(curvature, burgers) {
-            const distance = 50; // Lattice spacing in pixels
-            // GND density = curvature (radians) / (Burgers vector * distance)
-            return (curvature * Math.PI / 180) / (burgers * distance);
+        // Calculate number of dislocations based on total rotation and Burgers vector
+        function calculateDislocations(thetaMaxRad, b) {
+            const latticeSpacing = 50; // pixels
+            const b_pixels = b * latticeSpacing; // Burgers vector in pixels
+            // Number of dislocations = total rotation / Burgers vector (adjusted for canvas scale)
+            const N = Math.floor(thetaMaxRad / (b_pixels / canvas.width));
+            return Math.min(N, 8); // Cap at 8 for visibility
         }
 
         // Main function to update the simulation
         function drawDislocations() {
-            drawLattice();
-            const curvature = parseInt(curvatureSlider.value);
+            const thetaMaxDeg = parseFloat(curvatureSlider.value);
+            const thetaMaxRad = thetaMaxDeg * Math.PI / 180;
             const burgers = parseInt(burgersInput.value) || 1; // Default to 1 if invalid
-            const gndDensity = calculateGND(curvature, burgers);
-            const numDislocations = Math.min(Math.floor(gndDensity * 1000), 8); // Scale and cap for visibility
+
+            drawLattice(thetaMaxRad);
+
+            const numDislocations = calculateDislocations(thetaMaxRad, burgers);
 
             for (let i = 1; i <= numDislocations; i++) {
-                const x = 50 + i * 50; // Space dislocations evenly
+                const x = 50 + i * 50; // Position dislocations evenly
                 const y = 200; // Center vertically
                 drawDislocation(x, y);
                 drawBurgersVector(x, y, burgers);
