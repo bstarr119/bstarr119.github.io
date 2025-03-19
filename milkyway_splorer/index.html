@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Flyer</title>
+    <style>
+        body { margin: 0; background: #000; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <canvas id="galaxyCanvas" width="800" height="800"></canvas>
+    <script>
+        const canvas = document.getElementById('galaxyCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Galaxy generation parameters
+        const a = 1;              // Spiral scale factor
+        const b = 0.2;            // Spiral tightness
+        const numArms = 4;        // Number of spiral arms
+        const maxTheta = 6 * Math.PI; // Maximum angle for spiral
+        const dtheta = 0.1;       // Theta step size
+        const N = 10;             // Stars per theta step
+        const sigma_theta = 0.1;  // Angular deviation
+        const sigma_r = 0.5;      // Radial deviation
+        const sigma_z = 1;        // Thickness deviation
+
+        // Function to generate Gaussian random numbers
+        function randomGaussian() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        // Generate stars
+        const stars = [];
+        for (let k = 0; k < numArms; k++) {
+            for (let theta = 0; theta < maxTheta; theta += dtheta) {
+                const r = a * Math.exp(b * theta);
+                for (let i = 0; i < N; i++) {
+                    const theta_star = theta + k * (2 * Math.PI / numArms) + randomGaussian() * sigma_theta;
+                    const r_star = Math.max(0, r + randomGaussian() * sigma_r); // Ensure r_star is positive
+                    const x = r_star * Math.cos(theta_star);
+                    const y = r_star * Math.sin(theta_star);
+                    const z = randomGaussian() * sigma_z;
+                    stars.push({ x, y, z });
+                }
+            }
+        }
+
+        // Player state
+        let C = { x: 50, y: 0, z: 0 }; // Starting position
+        let yaw = Math.PI;             // Initial yaw (facing towards center)
+        let pitch = 0;                 // Initial pitch
+        const speed = 0.1;             // Movement speed per frame
+
+        // Input handling
+        let isDragging = false;
+        let lastX, lastY;
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const dx = e.clientX - lastX;
+                const dy = e.clientY - lastY;
+                yaw -= dx * 0.01;   // Sensitivity for yaw
+                pitch -= dy * 0.01; // Sensitivity for pitch
+                pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch)); // Clamp pitch
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }
+        });
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        // Touch events
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+                e.preventDefault();
+            }
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            if (isDragging && e.touches.length === 1) {
+                const dx = e.touches[0].clientX - lastX;
+                const dy = e.touches[0].clientY - lastY;
+                yaw -= dx * 0.01;
+                pitch -= dy * 0.01;
+                pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+                e.preventDefault();
+            }
+        });
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // Animation loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update player position
+            const F = {
+                x: Math.cos(yaw) * Math.cos(pitch),
+                y: Math.sin(yaw) * Math.cos(pitch),
+                z: Math.sin(pitch)
+            };
+            C.x += speed * F.x;
+            C.y += speed * F.y;
+            C.z += speed * F.z;
+
+            // Compute camera vectors
+            const R = { x: -Math.sin(yaw), y: Math.cos(yaw), z: 0 };
+            const U = {
+                x: -Math.cos(yaw) * Math.sin(pitch),
+                y: -Math.sin(yaw) * Math.sin(pitch),
+                z: Math.cos(pitch)
+            };
+
+            // Render stars
+            const f = 1;               // Focal length
+            const scale = canvas.width / 2;
+            ctx.fillStyle = '#FFFFFF'; // White stars
+            stars.forEach(star => {
+                const P_relative = {
+                    x: star.x - C.x,
+                    y: star.y - C.y,
+                    z: star.z - C.z
+                };
+                const x_camera = R.x * P_relative.x + R.y * P_relative.y + R.z * P_relative.z;
+                const y_camera = U.x * P_relative.x + U.y * P_relative.y + U.z * P_relative.z;
+                const z_camera = -(F.x * P_relative.x + F.y * P_relative.y + F.z * P_relative.z);
+
+                if (z_camera < -0.1) { // Only draw stars in front of the camera
+                    const d = -z_camera;
+                    const x_2d = f * x_camera / d;
+                    const y_2d = f * y_camera / d;
+                    const x_canvas = canvas.width / 2 + x_2d * scale;
+                    const y_canvas = canvas.height / 2 - y_2d * scale;
+
+                    // Draw star with size based on distance
+                    const size = Math.max(1, Math.min(5, 10 / d));
+                    ctx.fillRect(x_canvas - size / 2, y_canvas - size / 2, size, size);
+                }
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start the game
+        animate();
+    </script>
+</body>
+</html>
+​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
