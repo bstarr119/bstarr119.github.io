@@ -3,371 +3,308 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>3D Interactive Scene</title>
+    <title>3D Scene with Three.js</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
     </style>
 </head>
 <body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/noisejs/2.1.0/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.js"></script>
     <script>
-        // Perlin noise setup
-        noise.seed(Math.random());
-
         // Scene setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 5, 10);
-
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
+        // Noise instances for terrain and river
+        const noise = new SimplexNoise();
+        const riverNoise = new SimplexNoise('river');
+
+        // Height function for terrain and river
+        function getHeight(x, z) {
+            const riverX = riverNoise.noise2D(0, z / 100) * 50;
+            const distanceToRiver = Math.abs(x - riverX);
+            const riverWidth = 10;
+            let height = noise.noise2D(x / 50, z / 50) * 20; // Base terrain height
+            if (distanceToRiver < riverWidth) {
+                return -5 + (distanceToRiver / riverWidth) * 2; // River bed with smooth transition
+            }
+            // Add larger features like mountains
+            const mountainNoise = noise.noise2D(x / 200, z / 200);
+            height += mountainNoise > 0.5 ? (mountainNoise - 0.5) * 40 : 0; // Tall mountains
+            return height;
+        }
+
+        // Grass geometry (single blade)
+        const grassGeometry = new THREE.PlaneGeometry(0.1, 0.5);
+        grassGeometry.translate(0, 0.25, 0); // Base at ground level
+
+        // Grass material with swaying shader
+        const grassMaterial = new THREE.ShaderMaterial({
+            uniforms: { time: { value: 0.0 } },
+            vertexShader: `
+                uniform float time;
+                void main() {
+                    vec3 pos = position;
+                    if (pos.y > 0.0) { // Sway top vertices
+                        float sway = sin(time + instanceMatrix[3][0] + instanceMatrix[3][2]) * 0.1;
+                        pos.x += sway;
+                    }
+                    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(pos, 1.0);
+                }
+            `,
+            fragmentShader: `
+                void main() {
+                    gl_FragColor = vec4(0.0, 0.8, 0.0, 1.0); // Green grass
+                }
+            `,
+            side: THREE.DoubleSide
+        });
+
+        // Terrain material with dirt texture
+        const textureLoader = new THREE.TextureLoader();
+        const dirtTexture = textureLoader.load('https://threejs.org/examples/textures/terrain/rock.jpg'); // Using rock.jpg as a dirt substitute
+        dirtTexture.wrapS = THREE.RepeatWrapping;
+        dirtTexture.wrapT = THREE.RepeatWrapping;
+        dirtTexture.repeat.set(10, 10);
+        const terrainMaterial = new THREE.MeshStandardMaterial({ map: dirtTexture });
+
+        // Function to create a terrain chunk with grass
+        function createChunk(cx, cz) {
+            // Terrain geometry
+            const width = 100;
+            const height = 100;
+            const widthSegments = 100;
+            const heightSegments = 100;
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const indices = [];
+            const segmentWidth = width / widthSegments;
+            const segmentHeight = height / heightSegments;
+
+            for (let i = 0; i <= widthSegments; i++) {
+                for (let j = 0; j <= heightSegments; j++) {
+                    const x = cx * width + i * segmentWidth;
+                    const z = cz * height + j * segmentHeight;
+                    const y = getHeight(x, z);
+                    positions.push(x, y, z);
+                }
+            }
+
+            for (let i = 0; i < widthSegments; i++) {
+                for (let j = 0; j < heightSegments; j++) {
+                    const a = i * (heightSegments + 1) + j;
+                    const b = a + 1;
+                    const c = (i + 1) * (heightSegments + 1) + j;
+                    const d = c + 1;
+                    indices.push(a, b, d, a, d, c);
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(indices);
+            geometry.computeVertexNormals();
+            const terrainMesh = new THREE.Mesh(geometry, terrainMaterial);
+            scene.add(terrainMesh);
+
+            // Grass instancing
+            const grassCount = 10000; // Adjust based on performance
+            const grassMesh = new THREE.InstancedMesh(grassGeometry, grassMaterial, grassCount);
+            const dummy = new THREE.Object3D();
+            let instanceIndex = 0;
+            for (let i = 0; i < grassCount; i++) {
+                const x = cx * 100 + Math.random() * 100;
+                const z = cz * 100 + Math.random() * 100;
+                const y = getHeight(x, z);
+                const grassDensity = noise.noise2D(x / 20, z / 20);
+                if (y > 0 && grassDensity > -0.2) { // Above water and in grassy areas
+                    dummy.position.set(x, y, z);
+                    dummy.updateMatrix();
+                    grassMesh.setMatrixAt(instanceIndex++, dummy.matrix);
+                }
+            }
+            grassMesh.count = instanceIndex; // Only render placed instances
+            scene.add(grassMesh);
+
+            return { terrain: terrainMesh, grass: grassMesh };
+        }
+
+        // Water plane
+        const waterGeometry = new THREE.PlaneGeometry(10000, 10000, 1, 1);
+        waterGeometry.rotateX(-Math.PI / 2);
+        const waterMaterial = new THREE.MeshStandardMaterial({
+            color: 0x1e90ff,
+            transparent: true,
+            opacity: 0.7
+        });
+        const water = new THREE.Mesh(waterGeometry, waterMaterial);
+        water.position.y = 0;
+        scene.add(water);
 
         // Lighting
         const sunLight = new THREE.DirectionalLight(0xffffff, 1);
         sunLight.position.set(100, 100, 100);
-        sunLight.castShadow = true;
-        sunLight.shadow.mapSize.width = 1024;
-        sunLight.shadow.mapSize.height = 1024;
-        sunLight.shadow.camera.near = 0.5;
-        sunLight.shadow.camera.far = 500;
-        sunLight.shadow.camera.left = -200;
-        sunLight.shadow.camera.right = 200;
-        sunLight.shadow.camera.top = 200;
-        sunLight.shadow.camera.bottom = -200;
         scene.add(sunLight);
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        const ambientLight = new THREE.AmbientLight(0x404040);
         scene.add(ambientLight);
 
-        // Lensflare (copied from Three.js examples)
-        class Lensflare extends THREE.Object3D {
-            constructor() {
-                super();
-                this.lensFlares = [];
-                this.positionScreen = new THREE.Vector3();
-                this.customUpdateCallback = null;
-            }
-            addElement(element) {
-                this.lensFlares.push(element);
-            }
-            updateLensFlares() {
-                const flares = this.lensFlares;
-                for (let i = 0; i < flares.length; i++) {
-                    flares[i].update(this.positionScreen);
-                }
-            }
+        // Lens flare
+        function createFlareTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.beginPath();
+            ctx.arc(128, 128, 100, 0, Math.PI * 2);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+            return new THREE.CanvasTexture(canvas);
         }
-        class LensflareElement {
-            constructor(texture, size, distance, color) {
-                this.texture = texture;
-                this.size = size || 60;
-                this.distance = distance || 0;
-                this.color = color || new THREE.Color(0xffffff);
-                this.x = 0;
-                this.y = 0;
-                this.z = 0;
-            }
-            update(positionScreen) {
-                this.x = positionScreen.x + this.distance * positionScreen.x;
-                this.y = positionScreen.y + this.distance * positionScreen.y;
-                this.z = positionScreen.z;
-            }
-        }
-        const textureLoader = new THREE.TextureLoader();
-        const flareTexture0 = textureLoader.load('https://threejs.org/examples/textures/lensflare/lensflare0.png');
-        const flareTexture2 = textureLoader.load('https://threejs.org/examples/textures/lensflare/lensflare2.png');
-        const lensflare = new Lensflare();
-        lensflare.position.copy(sunLight.position);
-        lensflare.addElement(new LensflareElement(flareTexture0, 700, 0));
-        lensflare.addElement(new LensflareElement(flareTexture2, 60, 0.6));
-        scene.add(lensflare);
-
-        // Textures
-        const dirtTexture = textureLoader.load('https://textures.polyhaven.com/Soil_Dirt_001/Soil_Dirt_001_basecolor_1K.jpg');
-        dirtTexture.wrapS = dirtTexture.wrapT = THREE.RepeatWrapping;
-        dirtTexture.repeat.set(10, 10);
-        const grassTexture = textureLoader.load('https://opengameart.org/sites/default/files/grass-blade.png');
-        grassTexture.wrapS = grassTexture.wrapT = THREE.RepeatWrapping;
-        const waterTexture = textureLoader.load('https://textures.polyhaven.com/Water_001/Water_001_basecolor_1K.jpg');
-        waterTexture.wrapS = waterTexture.wrapT = THREE.RepeatWrapping;
-
-        // Grass material with wind effect
-        const grassMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0 },
-                map: { value: grassTexture }
-            },
-            vertexShader: `
-                attribute mat4 instanceMatrix;
-                uniform mat4 modelViewMatrix;
-                uniform mat4 projectionMatrix;
-                uniform float time;
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    vec3 instancePosition = instanceMatrix[3].xyz;
-                    float windStrength = sin(time + instancePosition.x * 0.1 + instancePosition.z * 0.1) * 0.2;
-                    vec3 offset = vec3(windStrength, 0, 0) * position.y;
-                    vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position + offset, 1.0);
-                    gl_Position = projectionMatrix * mvPosition;
-                }
-            `,
-            fragmentShader: `
-                uniform sampler2D map;
-                varying vec2 vUv;
-                void main() {
-                    vec4 color = texture2D(map, vUv);
-                    if (color.a < 0.5) discard;
-                    gl_FragColor = color;
-                }
-            `,
-            side: THREE.DoubleSide,
-            transparent: true
+        const flareTexture = createFlareTexture();
+        const flareMaterial = new THREE.SpriteMaterial({
+            map: flareTexture,
+            color: 0xffffff,
+            transparent: true,
+            blending: THREE.AdditiveBlending
         });
-
-        // Water material with flow
-        const waterMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0 },
-                map: { value: waterTexture }
-            },
-            vertexShader: `
-                uniform mat4 modelViewMatrix;
-                uniform mat4 projectionMatrix;
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform sampler2D map;
-                uniform float time;
-                varying vec2 vUv;
-                void main() {
-                    vec2 flowUv = vUv + vec2(time * 0.1, 0);
-                    vec4 color = texture2D(map, flowUv);
-                    gl_FragColor = vec4(color.rgb, 0.8);
-                }
-            `,
-            transparent: true
-        });
-
-        // Chunk parameters
-        const chunkSize = 100;
-        const segments = 50;
-        const bladeWidth = 0.1;
-        const bladeCountPerPatch = 5000; // Reduced for mobile performance
-
-        // Loaded chunks
-        const loadedChunks = {};
-
-        // Create terrain chunk
-        function createTerrainChunk(cx, cz) {
-            const group = new THREE.Group();
-
-            // Terrain mesh
-            const geometry = new THREE.PlaneGeometry(chunkSize, chunkSize, segments, segments);
-            const positions = geometry.attributes.position.array;
-            for (let i = 0; i < positions.length; i += 3) {
-                const x = positions[i];
-                const z = positions[i + 2];
-                const worldX = cx * chunkSize + x;
-                const worldZ = cz * chunkSize + z;
-                const height = computeHeight(worldX, worldZ);
-                positions[i + 1] = height;
-                // Lower terrain for river
-                if (Math.abs(worldX) < 5 && worldZ > -50 && worldZ < 50) {
-                    positions[i + 1] = Math.max(height - 2, 0);
-                }
-            }
-            geometry.computeVertexNormals();
-            const material = new THREE.MeshStandardMaterial({
-                map: dirtTexture,
-                roughness: 0.8,
-                metalness: 0.1
-            });
-            const terrainMesh = new THREE.Mesh(geometry, material);
-            terrainMesh.rotation.x = -Math.PI / 2;
-            terrainMesh.castShadow = true;
-            terrainMesh.receiveShadow = true;
-            group.add(terrainMesh);
-
-            // Grass blades
-            const bladeGeometry = new THREE.PlaneGeometry(bladeWidth, 1, 1, 1);
-            const bladeMesh = new THREE.InstancedMesh(bladeGeometry, grassMaterial, bladeCountPerPatch);
-            let instanceIndex = 0;
-            for (let x = -chunkSize / 2; x < chunkSize / 2 && instanceIndex < bladeCountPerPatch; x += bladeWidth * 2) {
-                for (let z = -chunkSize / 2; z < chunkSize / 2 && instanceIndex < bladeCountPerPatch; z += bladeWidth * 2) {
-                    const worldX = cx * chunkSize + x + (Math.random() - 0.5) * bladeWidth;
-                    const worldZ = cz * chunkSize + z + (Math.random() - 0.5) * bladeWidth;
-                    // Skip grass near river or in patchy areas
-                    const grassDensity = noise.perlin2(worldX / 20, worldZ / 20);
-                    if (Math.abs(worldX) < 5 && worldZ > -50 && worldZ < 50) continue; // River area
-                    if (grassDensity < -0.2) continue; // Patchy ground
-                    const y = computeHeight(worldX, worldZ);
-                    const matrix = new THREE.Matrix4().makeTranslation(worldX, y + 0.5, worldZ);
-                    matrix.makeRotationY(Math.random() * Math.PI);
-                    bladeMesh.setMatrixAt(instanceIndex++, matrix);
-                }
-            }
-            bladeMesh.castShadow = true;
-            bladeMesh.receiveShadow = true;
-            group.add(bladeMesh);
-
-            // River (simplified as a straight path)
-            if (cx === 0 && Math.abs(cz) <= 1) {
-                const riverGeometry = new THREE.PlaneGeometry(10, chunkSize, 1, 1);
-                const riverMesh = new THREE.Mesh(riverGeometry, waterMaterial);
-                riverMesh.rotation.x = -Math.PI / 2;
-                riverMesh.position.y = computeHeight(cx * chunkSize, cz * chunkSize) - 1.9;
-                riverMesh.receiveShadow = true;
-                group.add(riverMesh);
-            }
-
-            group.position.set(cx * chunkSize, 0, cz * chunkSize);
-            return group;
-        }
-
-        // Height computation for varied topology
-        function computeHeight(x, z) {
-            const hillHeight = noise.perlin2(x / 50, z / 50) * 10; // Rolling hills
-            const mountainHeight = noise.perlin2(x / 200, z / 200) * 50; // Mountains
-            const valleyNoise = noise.perlin2(x / 100, z / 100) * -20; // Valleys
-            const duneNoise = noise.perlin2(x / 30, z / 30) * 5; // Dunes
-            return hillHeight + (mountainHeight > 0 ? mountainHeight : valleyNoise) + duneNoise;
-        }
+        const flare = new THREE.Sprite(flareMaterial);
+        flare.scale.set(10, 10, 1);
+        flare.position.copy(sunLight.position);
+        scene.add(flare);
 
         // Camera controls
-        let rotationTouch = null;
-        let movementTouch = null;
+        let leftTouchId = null, rightTouchId = null;
+        let startTouchXLeft, startTouchYLeft, currentTouchXLeft, currentTouchYLeft;
+        let startTouchXRight, startTouchYRight, currentTouchXRight, currentTouchYRight;
+        let moveSpeed = 0;
+        const yawSpeed = 0.005;
+        const pitchSpeed = 0.005;
 
-        function onTouchStart(event) {
-            event.preventDefault();
+        document.addEventListener('touchstart', (event) => {
             for (let touch of event.changedTouches) {
-                if (touch.clientX < window.innerWidth / 2) {
-                    rotationTouch = { id: touch.identifier, startX: touch.clientX, startY: touch.clientY };
-                } else {
-                    movementTouch = { id: touch.identifier, startX: touch.clientX, startY: touch.clientY, currentX: touch.clientX, currentY: touch.clientY };
+                const x = touch.clientX;
+                if (x < window.innerWidth / 2 && leftTouchId === null) {
+                    leftTouchId = touch.identifier;
+                    startTouchXLeft = x;
+                    startTouchYLeft = touch.clientY;
+                    currentTouchXLeft = x;
+                    currentTouchYLeft = touch.clientY;
+                } else if (x >= window.innerWidth / 2 && rightTouchId === null) {
+                    rightTouchId = touch.identifier;
+                    startTouchXRight = x;
+                    startTouchYRight = touch.clientY;
+                    currentTouchXRight = x;
+                    currentTouchYRight = touch.clientY;
                 }
             }
-        }
-
-        function onTouchMove(event) {
-            event.preventDefault();
-            for (let touch of event.touches) {
-                if (rotationTouch && touch.identifier === rotationTouch.id) {
-                    const deltaX = touch.clientX - rotationTouch.startX;
-                    const deltaY = touch.clientY - rotationTouch.startY;
-                    camera.rotation.y -= deltaX * 0.005;
-                    camera.rotation.x -= deltaY * 0.005;
-                    camera.rotation.x = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, camera.rotation.x));
-                    rotationTouch.startX = touch.clientX;
-                    rotationTouch.startY = touch.clientY;
-                } else if (movementTouch && touch.identifier === movementTouch.id) {
-                    movementTouch.currentX = touch.clientX;
-                    movementTouch.currentY = touch.clientY;
-                }
-            }
-        }
-
-        function onTouchEnd(event) {
-            event.preventDefault();
-            for (let touch of event.changedTouches) {
-                if (rotationTouch && touch.identifier === rotationTouch.id) {
-                    rotationTouch = null;
-                } else if (movementTouch && touch.identifier === movementTouch.id) {
-                    movementTouch = null;
-                }
-            }
-        }
-
-        document.addEventListener('touchstart', onTouchStart, { passive: false });
-        document.addEventListener('touchmove', onTouchMove, { passive: false });
-        document.addEventListener('touchend', onTouchEnd, { passive: false });
-
-        // Resize handler
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Animation loop
-        let lastTime = 0;
-        function animate(time) {
-            requestAnimationFrame(animate);
-            const deltaTime = Math.min((time - lastTime) / 1000, 0.1); // Cap deltaTime
-            lastTime = time;
+        document.addEventListener('touchmove', (event) => {
+            for (let touch of event.changedTouches) {
+                if (touch.identifier === leftTouchId) {
+                    currentTouchXLeft = touch.clientX;
+                    currentTouchYLeft = touch.clientY;
+                    const deltaX = currentTouchXLeft - startTouchXLeft;
+                    const deltaY = currentTouchYLeft - startTouchYLeft;
+                    camera.rotation.y -= deltaX * yawSpeed;
+                    camera.rotation.x -= deltaY * pitchSpeed;
+                    camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
+                    startTouchXLeft = currentTouchXLeft;
+                    startTouchYLeft = currentTouchYLeft;
+                } else if (touch.identifier === rightTouchId) {
+                    currentTouchXRight = touch.clientX;
+                    currentTouchYRight = touch.clientY;
+                    const deltaX = currentTouchXRight - startTouchXRight;
+                    camera.rotation.y -= deltaX * yawSpeed;
+                    startTouchXRight = currentTouchXRight;
+                    const deltaY = startTouchYRight - currentTouchYRight;
+                    moveSpeed = deltaY * 0.001;
+                }
+            }
+        });
 
-            // Update movement
-            if (movementTouch) {
-                const deltaX = movementTouch.currentX - movementTouch.startX;
-                const deltaY = movementTouch.currentY - movementTouch.startY;
-                const yawSpeed = deltaX * 0.005;
-                const moveSpeed = -deltaY * 0.1;
-                camera.rotation.y -= yawSpeed * deltaTime;
-                camera.translateZ(moveSpeed * deltaTime);
-                camera.position.y = computeHeight(camera.position.x, camera.position.z) + 2; // Keep above terrain
+        document.addEventListener('touchend', (event) => {
+            for (let touch of event.changedTouches) {
+                if (touch.identifier === leftTouchId) {
+                    leftTouchId = null;
+                } else if (touch.identifier === rightTouchId) {
+                    rightTouchId = null;
+                    moveSpeed = 0;
+                }
+            }
+        });
+
+        // Chunk management
+        const loadedChunks = new Map();
+        const chunkSize = 100;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update grass swaying
+            grassMaterial.uniforms.time.value = performance.now() / 1000;
+
+            // Camera movement
+            if (rightTouchId !== null) {
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                forward.y = 0;
+                forward.normalize();
+                camera.position.add(forward.multiplyScalar(moveSpeed));
             }
 
-            // Update shaders
-            grassMaterial.uniforms.time.value = time / 1000;
-            waterMaterial.uniforms.time.value = time / 1000;
+            // Chunk loading/unloading
+            const cameraChunkX = Math.floor(camera.position.x / chunkSize);
+            const cameraChunkZ = Math.floor(camera.position.z / chunkSize);
+            const loadRadius = 2;
+            const chunksToLoad = [];
+            for (let cx = cameraChunkX - loadRadius; cx <= cameraChunkX + loadRadius; cx++) {
+                for (let cz = cameraChunkZ - loadRadius; cz <= cameraChunkZ + loadRadius; cz++) {
+                    chunksToLoad.push(`${cx},${cz}`);
+                }
+            }
 
-            // Manage chunks
-            manageChunks();
+            const chunksToLoadSet = new Set(chunksToLoad);
+            for (let key of [...loadedChunks.keys()]) {
+                const baseKey = key.split('_')[0];
+                if (!chunksToLoadSet.has(baseKey)) {
+                    const obj = loadedChunks.get(key);
+                    scene.remove(obj);
+                    obj.geometry.dispose();
+                    if (obj.material.dispose) obj.material.dispose();
+                    loadedChunks.delete(key);
+                }
+            }
+
+            for (let key of chunksToLoad) {
+                if (!loadedChunks.has(key)) {
+                    const [cx, cz] = key.split(',').map(Number);
+                    const chunk = createChunk(cx, cz);
+                    loadedChunks.set(`${cx},${cz}`, chunk.terrain);
+                    loadedChunks.set(`${cx},${cz}_grass`, chunk.grass);
+                }
+            }
 
             renderer.render(scene, camera);
         }
 
-        // Manage procedural chunks
-        function manageChunks() {
-            const cameraPosition = camera.position;
-            const loadRadius = 150;
-            const unloadRadius = 200;
-            const chunksToLoad = [];
-
-            for (let cx = Math.floor((cameraPosition.x - loadRadius) / chunkSize); cx <= Math.floor((cameraPosition.x + loadRadius) / chunkSize); cx++) {
-                for (let cz = Math.floor((cameraPosition.z - loadRadius) / chunkSize); cz <= Math.floor((cameraPosition.z + loadRadius) / chunkSize); cz++) {
-                    const key = `${cx},${cz}`;
-                    if (!loadedChunks[key]) {
-                        chunksToLoad.push({ cx, cz });
-                    }
-                }
-            }
-
-            chunksToLoad.forEach(({ cx, cz }) => {
-                const chunk = createTerrainChunk(cx, cz);
-                scene.add(chunk);
-                loadedChunks[`${cx},${cz}`] = chunk;
-            });
-
-            for (let key in loadedChunks) {
-                const [cx, cz] = key.split(',').map(Number);
-                const chunkCenter = new THREE.Vector3(cx * chunkSize, 0, cz * chunkSize);
-                if (cameraPosition.distanceTo(chunkCenter) > unloadRadius) {
-                    scene.remove(loadedChunks[key]);
-                    delete loadedChunks[key];
-                }
-            }
-        }
-
-        // Initial chunks
-        for (let cx = -1; cx <= 1; cx++) {
-            for (let cz = -1; cz <= 1; cz++) {
-                const chunk = createTerrainChunk(cx, cz);
-                scene.add(chunk);
-                loadedChunks[`${cx},${cz}`] = chunk;
-            }
-        }
+        // Initialize camera position
+        camera.position.set(0, 15, 0);
+        camera.lookAt(0, 0, 0);
 
         // Start animation
-        animate(0);
+        animate();
     </script>
 </body>
 </html>
