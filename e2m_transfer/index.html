@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocket to Mars Simulation</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <!-- Load Three.js and OrbitControls from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        // Orbital parameters (in AU and years)
+        const R_earth = 1;              // Earth's orbital radius
+        const R_mars = 1.523662;        // Mars' orbital radius
+        const a_transfer = (R_earth + R_mars) / 2; // Transfer orbit semi-major axis
+        const e_transfer = (R_mars - R_earth) / (R_mars + R_earth); // Eccentricity
+        const T_mars = Math.pow(R_mars, 1.5); // Mars' orbital period
+        const omega_mars = 2 * Math.PI / T_mars; // Mars' angular velocity
+        const T_transfer = Math.pow(a_transfer, 1.5); // Transfer orbit period
+        const n_transfer = 2 * Math.PI / T_transfer; // Mean motion
+        const phi = Math.PI - omega_mars * (T_transfer / 2); // Phase angle at launch (~44.6°)
+
+        // Set up the scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 10);
+        camera.lookAt(0, 0, 0);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // OrbitControls for dragging
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        controls.screenSpacePanning = false;
+        controls.minDistance = 1;
+        controls.maxDistance = 100;
+
+        // Sun
+        const sunGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+        const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+        scene.add(sun);
+
+        // Earth
+        const earthGeometry = new THREE.SphereGeometry(0.02, 32, 32);
+        const earthMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
+
+        // Mars
+        const marsGeometry = new THREE.SphereGeometry(0.015, 32, 32);
+        const marsMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const mars = new THREE.Mesh(marsGeometry, marsMaterial);
+        scene.add(mars);
+
+        // Rocket
+        const rocketGeometry = new THREE.SphereGeometry(0.005, 16, 16);
+        const rocketMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const rocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
+        scene.add(rocket);
+
+        // Rocket's path
+        const pathMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+        const pathGeometry = new THREE.BufferGeometry();
+        const pathPositions = [];
+        pathGeometry.setAttribute('position', new THREE.Float32BufferAttribute(pathPositions, 3));
+        const path = new THREE.Line(pathGeometry, pathMaterial);
+        scene.add(path);
+
+        // Simulation variables
+        let simTime = 0;           // Simulation time in years
+        const timeScale = 0.1;     // 0.1 simulation years per real second
+        let lastTime = performance.now() / 1000;
+        let cameraMode = 'fixed';  // 'fixed' or 'rocket'
+
+        // Solve Kepler's equation using Newton's method
+        function solveKepler(M, e, tolerance = 1e-6, maxIterations = 10) {
+            let E = M; // Initial guess
+            for (let i = 0; i < maxIterations; i++) {
+                const delta = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+                E -= delta;
+                if (Math.abs(delta) < tolerance) break;
+            }
+            return E;
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update simulation time
+            const currentTime = performance.now() / 1000;
+            const delta = currentTime - lastTime;
+            lastTime = currentTime;
+            simTime += delta * timeScale;
+
+            // Earth position
+            const theta_earth = 2 * Math.PI * simTime;
+            earth.position.set(R_earth * Math.cos(theta_earth), R_earth * Math.sin(theta_earth), 0);
+
+            // Mars position
+            const theta_mars = phi + omega_mars * simTime;
+            mars.position.set(R_mars * Math.cos(theta_mars), R_mars * Math.sin(theta_mars), 0);
+
+            // Rocket position
+            const M = n_transfer * simTime;
+            const E = solveKepler(M, e_transfer);
+            const x_rocket = a_transfer * (Math.cos(E) - e_transfer);
+            const y_rocket = a_transfer * Math.sqrt(1 - e_transfer * e_transfer) * Math.sin(E);
+            rocket.position.set(x_rocket, y_rocket, 0);
+
+            // Update path
+            pathPositions.push(x_rocket, y_rocket, 0);
+            if (pathPositions.length > 3000) pathPositions.splice(0, 3); // Limit to 1000 points
+            pathGeometry.setAttribute('position', new THREE.Float32BufferAttribute(pathPositions, 3));
+            pathGeometry.attributes.position.needsUpdate = true;
+
+            // Camera control
+            if (cameraMode === 'fixed') {
+                controls.update();
+            } else if (cameraMode === 'rocket') {
+                // Compute velocity for orientation
+                const dE_dt = n_transfer / (1 - e_transfer * Math.cos(E));
+                const vx = a_transfer * (-Math.sin(E)) * dE_dt;
+                const vy = a_transfer * Math.sqrt(1 - e_transfer * e_transfer) * Math.cos(E) * dE_dt;
+                const lookAtPos = new THREE.Vector3(x_rocket + vx, y_rocket + vy, 0);
+                camera.position.set(x_rocket, y_rocket, 0);
+                camera.lookAt(lookAtPos);
+                camera.up.set(0, 0, 1);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Start animation
+        animate();
+
+        // Switch camera mode with 'c' key
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'c') {
+                cameraMode = cameraMode === 'fixed' ? 'rocket' : 'fixed';
+                controls.enabled = cameraMode === 'fixed';
+            }
+        });
+    </script>
+</body>
+</html>
+​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
