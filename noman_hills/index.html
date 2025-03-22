@@ -1,325 +1,453 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <title>3D Navigable Scene</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive 3D Scene</title>
     <style>
         body { margin: 0; overflow: hidden; }
         canvas { display: block; }
     </style>
 </head>
 <body>
-    <!-- Include Three.js from CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
-    <!-- Include Simplex Noise for procedural generation -->
-    <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.js"></script>
+    <!-- Load Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // Scene setup
+        // Perlin Noise Implementation (simplified from https://gist.github.com/banksean/304522)
+        // This is a basic 2D Perlin noise function for terrain generation
+        const Noise = (function() {
+            function Grad(x, y, z) {
+                this.x = x; this.y = y; this.z = z;
+            }
+            Grad.prototype.dot2 = function(x, y) {
+                return this.x * x + this.y * y;
+            };
+
+            const grad3 = [
+                new Grad(1,1,0), new Grad(-1,1,0), new Grad(1,-1,0), new Grad(-1,-1,0),
+                new Grad(1,0,1), new Grad(-1,0,1), new Grad(1,0,-1), new Grad(-1,0,-1),
+                new Grad(0,1,1), new Grad(0,-1,1), new Grad(0,1,-1), new Grad(0,-1,-1)
+            ];
+
+            const p = [];
+            for (let i = 0; i < 256; i++) {
+                p[i] = Math.floor(Math.random() * 256);
+            }
+            const perm = [];
+            for (let i = 0; i < 512; i++) {
+                perm[i] = p[i & 255];
+            }
+
+            function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+            function lerp(a, b, t) { return (1 - t) * a + t * b; }
+
+            function perlin(x, y) {
+                const X = Math.floor(x) & 255;
+                const Y = Math.floor(y) & 255;
+                x -= Math.floor(x);
+                y -= Math.floor(y);
+                const u = fade(x);
+                const v = fade(y);
+                const a = perm[X] + Y, aa = perm[a], ab = perm[a + 1];
+                const b = perm[X + 1] + Y, ba = perm[b], bb = perm[b + 1];
+                return lerp(
+                    lerp(grad3[perm[aa] & 11].dot2(x, y), grad3[perm[ba] & 11].dot2(x - 1, y), u),
+                    lerp(grad3[perm[ab] & 11].dot2(x, y - 1), grad3[perm[bb] & 11].dot2(x - 1, y - 1), u),
+                    v
+                ) * 0.5 + 0.5; // Normalize to 0-1
+            }
+            return { perlin };
+        })();
+
+        // Scene Setup
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 1.6, 0); // Eye height at 1.6 units
-
         const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
+
         // Lighting
-        const sun = new THREE.DirectionalLight(0xffffff, 1);
-        sun.position.set(100, 100, 100);
-        sun.castShadow = true;
-        sun.shadow.mapSize.width = 2048; // Higher resolution shadows
-        sun.shadow.mapSize.height = 2048;
-        sun.shadow.camera.near = 0.5;
-        sun.shadow.camera.far = 500;
-        sun.shadow.camera.left = -200;
-        sun.shadow.camera.right = 200;
-        sun.shadow.camera.top = 200;
-        sun.shadow.camera.bottom = -200;
-        scene.add(sun);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+        sunLight.position.set(50, 50, 50);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 1024;
+        sunLight.shadow.mapSize.height = 1024;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 500;
+        sunLight.shadow.camera.left = -100;
+        sunLight.shadow.camera.right = 100;
+        sunLight.shadow.camera.top = 100;
+        sunLight.shadow.camera.bottom = -100;
+        scene.add(sunLight);
+        scene.add(new THREE.AmbientLight(0x606060, 0.5));
 
-        const ambient = new THREE.AmbientLight(0x404040); // Soft ambient light
-        scene.add(ambient);
+        // Lens Flare (simple sprite)
+        const flareTexture = new THREE.TextureLoader().load(
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAACYSURBVHhe7dEBDQAwCACx+5+BF8iKxE6wBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAP//2QAAAABJRU5ErkJggg=='
+        ); // Simplified white circle
+        const flareMaterial = new THREE.SpriteMaterial({ map: flareTexture, color: 0xffffaa, transparent: true, blending: THREE.AdditiveBlending });
+        const flareSprite = new THREE.Sprite(flareMaterial);
+        flareSprite.scale.set(5, 5, 1);
+        flareSprite.position.copy(sunLight.position);
+        scene.add(flareSprite);
 
-        // Simple lens flare effect (using a sprite)
-        const flareTexture = new THREE.TextureLoader().load('https://threejs.org/examples/textures/lensflare/lensflare0.png');
-        const flareMaterial = new THREE.SpriteMaterial({ map: flareTexture, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending });
-        const lensFlare = new THREE.Sprite(flareMaterial);
-        lensFlare.position.copy(sun.position);
-        lensFlare.scale.set(5, 5, 1);
-        scene.add(lensFlare);
-
-        // Noise for procedural generation
-        const noise = new SimplexNoise();
-
-        // Terrain management
-        const chunkSize = 64;
-        const renderDistance = 2; // Chunks around the camera
-        const chunks = new Map(); // Key: "x,z", Value: THREE.Mesh
-
-        function getHeight(x, z) {
-            // Multi-octave noise for varied terrain
-            const scale = 0.005;
-            let height = noise.noise2D(x * scale, z * scale) * 10; // Base height
-            height += noise.noise2D(x * scale * 2, z * scale * 2) * 5; // Medium details
-            height += noise.noise2D(x * scale * 4, z * scale * 4) * 2; // Fine details
-            return Math.max(-10, Math.min(50, height)); // Clamp between -10 and 50
-        }
-
-        function generateChunk(chunkX, chunkZ) {
-            const key = `${chunkX},${chunkZ}`;
-            if (chunks.has(key)) return;
-
-            const geometry = new THREE.PlaneGeometry(chunkSize, chunkSize, 32, 32);
-            geometry.rotateX(-Math.PI / 2);
-            const vertices = geometry.attributes.position.array;
-
-            for (let i = 0; i < vertices.length; i += 3) {
-                const x = chunkX * chunkSize + vertices[i];
-                const z = chunkZ * chunkSize + vertices[i + 2];
-                vertices[i + 1] = getHeight(x, z);
-            }
-            geometry.computeVertexNormals(); // For lighting
-
-            const material = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 1, metalness: 0 });
-            const chunk = new THREE.Mesh(geometry, material);
-            chunk.position.set(chunkX * chunkSize, 0, chunkZ * chunkSize);
-            chunk.receiveShadow = true;
-            chunk.castShadow = true;
-            scene.add(chunk);
-            chunks.set(key, chunk);
-
-            // Add grass to this chunk
-            addGrassToChunk(chunkX, chunkZ);
-        }
-
-        // Grass setup
-        const bladeCountPerChunk = 5000; // Adjust based on performance
-        const bladeWidth = 0.1;
-        const bladeGeometry = new THREE.PlaneGeometry(bladeWidth, 1, 1, 1);
+        // Grass Material with Wind Animation
+        const bladeGeometry = new THREE.PlaneGeometry(0.1, 0.5, 1, 1);
         const bladeMaterial = new THREE.ShaderMaterial({
-            uniforms: { time: { value: 0 } },
+            uniforms: { time: { value: 0.0 } },
             vertexShader: `
                 uniform float time;
+                attribute mat4 instanceMatrix;
+                varying vec2 vUv;
                 void main() {
+                    vec4 worldPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+                    float wind = sin(time * 2.0 + worldPos.x * 0.1 + worldPos.z * 0.1) * 0.05;
                     vec3 pos = position;
-                    vec4 worldPos = modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-                    if (pos.y > 0.4) {
-                        float wind = sin(time + worldPos.x * 0.1 + worldPos.z * 0.1) * 0.1;
+                    if (pos.y > 0.0) {
                         pos.x += wind;
-                        pos.z += wind;
+                        pos.z += wind * 0.5;
                     }
                     gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(pos, 1.0);
+                    vUv = uv;
                 }
             `,
             fragmentShader: `
+                varying vec2 vUv;
                 void main() {
-                    gl_FragColor = vec4(0.0, 0.8, 0.0, 1.0); // Slightly darker green
+                    vec3 baseColor = vec3(0.0, 0.8, 0.2);
+                    float tipFade = smoothstep(0.7, 1.0, vUv.y);
+                    gl_FragColor = vec4(baseColor * (1.0 - tipFade * 0.3), 1.0);
                 }
             `,
             side: THREE.DoubleSide
         });
 
-        function addGrassToChunk(chunkX, chunkZ) {
-            const blades = new THREE.InstancedMesh(bladeGeometry, bladeMaterial, bladeCountPerChunk);
-            const dummy = new THREE.Object3D();
-            for (let i = 0; i < bladeCountPerChunk; i++) {
-                const x = chunkX * chunkSize + Math.random() * chunkSize - chunkSize / 2;
-                const z = chunkZ * chunkSize + Math.random() * chunkSize - chunkSize / 2;
-                const height = getHeight(x, z);
-                // Skip grass in low areas (e.g., river) or randomly for patches
-                if (height < -2 || Math.random() < 0.2) continue;
-                dummy.position.set(x, height + 0.5, z);
-                dummy.updateMatrix();
-                blades.setMatrixAt(i % bladeCountPerChunk, dummy.matrix);
-            }
-            blades.castShadow = true;
-            blades.receiveShadow = true;
-            scene.add(blades);
-            chunks.set(`${chunkX},${chunkZ}_grass`, blades);
-        }
-
-        // River (simple straight river for now)
-        const riverGeometry = new THREE.PlaneGeometry(chunkSize * 2, 10, 32, 1);
-        riverGeometry.rotateX(-Math.PI / 2);
-        const riverMaterial = new THREE.ShaderMaterial({
-            uniforms: { time: { value: 0 } },
+        // Water Material with Flowing Waves
+        const waterMaterial = new THREE.ShaderMaterial({
+            uniforms: { time: { value: 0.0 } },
             vertexShader: `
                 uniform float time;
+                varying vec2 vUv;
                 void main() {
                     vec3 pos = position;
-                    pos.y += sin(pos.x * 0.1 + time) * 0.2; // Simple wave
+                    pos.y += sin(time * 1.5 + pos.x * 0.2 + pos.z * 0.2) * 0.1 +
+                             cos(time * 1.0 + pos.z * 0.15) * 0.05;
                     gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                    vUv = uv;
                 }
             `,
             fragmentShader: `
+                varying vec2 vUv;
                 void main() {
-                    gl_FragColor = vec4(0.0, 0.5, 1.0, 0.8); // Blue with transparency
+                    vec3 waterColor = vec3(0.1, 0.3, 0.7);
+                    float wave = sin(vUv.x * 10.0 + vUv.y * 5.0);
+                    gl_FragColor = vec4(waterColor + wave * 0.05, 0.7);
                 }
             `,
-            side: THREE.DoubleSide,
-            transparent: true
+            transparent: true,
+            side: THREE.DoubleSide
         });
-        const river = new THREE.Mesh(riverGeometry, riverMaterial);
-        river.position.set(0, -2, 0); // Below terrain base level
-        scene.add(river);
 
-        // Controls
-        const movement = { forward: false, backward: false, left: false, right: false };
-        let lookTouchId = null, movementTouchId = null;
-        let lookInitialPos = { x: 0, y: 0 }, movementInitialPos = { x: 0, y: 0 };
-        let currentLookPos = { x: 0, y: 0 }, currentMovementPos = { x: 0, y: 0 };
-        let movementSpeedForward = 0, movementYawSpeed = 0;
-        let prevMouseX = 0, prevMouseY = 0, mouseMoved = false;
+        // Terrain and Chunk Management
+        const chunkSize = 32;
+        const loadDistance = 2;
+        const unloadDistance = 3;
+        const loadedChunks = {};
 
-        // Desktop controls
-        document.addEventListener('keydown', (event) => {
-            switch (event.code) {
-                case 'KeyW': movement.forward = true; break;
-                case 'KeyS': movement.backward = true; break;
-                case 'KeyA': movement.left = true; break;
-                case 'KeyD': movement.right = true; break;
+        function getChunkKey(i, j) {
+            return `${i},${j}`;
+        }
+
+        function getTerrainHeight(x, z) {
+            // Multi-octave Perlin noise for varied topology
+            let height = 0;
+            height += Noise.perlin(x / 20, z / 20) * 10;    // Base hills
+            height += Noise.perlin(x / 10, z / 10) * 5;     // Smaller details
+            height += Noise.perlin(x / 50, z / 50) * 20;    // Larger mountains
+            return height - 10; // Shift down to allow rivers
+        }
+
+        function createChunk(i, j) {
+            // Terrain Mesh
+            const geometry = new THREE.PlaneGeometry(chunkSize, chunkSize, 32, 32);
+            geometry.rotateX(-Math.PI / 2);
+            const vertices = geometry.attributes.position.array;
+            for (let k = 0; k < vertices.length; k += 3) {
+                const x = vertices[k] + i * chunkSize;
+                const z = vertices[k + 2] + j * chunkSize;
+                vertices[k + 1] = getTerrainHeight(x, z);
             }
-        });
-
-        document.addEventListener('keyup', (event) => {
-            switch (event.code) {
-                case 'KeyW': movement.forward = false; break;
-                case 'KeyS': movement.backward = false; break;
-                case 'KeyA': movement.left = false; break;
-                case 'KeyD': movement.right = false; break;
-            }
-        });
-
-        document.addEventListener('mousemove', (event) => {
-            if (!mouseMoved) {
-                prevMouseX = event.clientX;
-                prevMouseY = event.clientY;
-                mouseMoved = true;
-                return;
-            }
-            const deltaX = event.clientX - prevMouseX;
-            const deltaY = event.clientY - prevMouseY;
-            prevMouseX = event.clientX;
-            prevMouseY = event.clientY;
-            camera.rotation.y -= deltaX * 0.002;
-            camera.rotation.x -= deltaY * 0.002;
-            camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
-        });
-
-        // Mobile controls
-        document.addEventListener('touchstart', (event) => {
-            event.preventDefault();
-            for (const touch of event.changedTouches) {
-                const x = touch.clientX;
-                const y = touch.clientY;
-                if (x < window.innerWidth / 2 && lookTouchId === null) {
-                    lookTouchId = touch.identifier;
-                    lookInitialPos = { x, y };
-                    currentLookPos = { x, y };
-                } else if (x >= window.innerWidth / 2 && movementTouchId === null) {
-                    movementTouchId = touch.identifier;
-                    movementInitialPos = { x, y };
-                    currentMovementPos = { x, y };
+            geometry.computeVertexNormals();
+            // Procedural dirt texture
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            for (let x = 0; x < 256; x++) {
+                for (let y = 0; y < 256; y++) {
+                    const noiseVal = Noise.perlin(x / 50, y / 50);
+                    const color = `rgb(${Math.floor(139 * (0.8 + noiseVal * 0.2))},
+                                      ${Math.floor(69 * (0.8 + noiseVal * 0.2))},
+                                      ${Math.floor(19 * (0.8 + noiseVal * 0.2))})`;
+                    ctx.fillStyle = color;
+                    ctx.fillRect(x, y, 1, 1);
                 }
             }
-        }, { passive: false });
+            const texture = new THREE.CanvasTexture(canvas);
+            const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.8 });
+            const terrain = new THREE.Mesh(geometry, material);
+            terrain.position.set(i * chunkSize, 0, j * chunkSize);
+            terrain.castShadow = true;
+            terrain.receiveShadow = true;
+            scene.add(terrain);
 
-        document.addEventListener('touchmove', (event) => {
-            event.preventDefault();
-            for (const touch of event.changedTouches) {
-                if (touch.identifier === lookTouchId) {
-                    const prevX = currentLookPos.x;
-                    const prevY = currentLookPos.y;
-                    currentLookPos = { x: touch.clientX, y: touch.clientY };
-                    const deltaX = currentLookPos.x - prevX;
-                    const deltaY = currentLookPos.y - prevY;
-                    camera.rotation.y -= deltaX * 0.01;
-                    camera.rotation.x -= deltaY * 0.01;
-                    camera.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, camera.rotation.x));
-                } else if (touch.identifier === movementTouchId) {
-                    currentMovementPos = { x: touch.clientX, y: touch.clientY };
-                    const dx = currentMovementPos.x - movementInitialPos.x;
-                    const dy = currentMovementPos.y - movementInitialPos.y;
-                    movementSpeedForward = -dy * 0.1; // Up is forward
-                    movementYawSpeed = dx * 0.005; // Left/right yaws
+            // Grass Instances
+            const grassCount = 2000; // Dense grass
+            const instancedMesh = new THREE.InstancedMesh(bladeGeometry, bladeMaterial, grassCount);
+            const dummy = new THREE.Object3D();
+            let instanceIdx = 0;
+            for (let x = -16; x <= 16; x += 0.15) { // Spacing ~0.15 (half blade width + some overlap)
+                for (let z = -16; z <= 16; z += 0.15) {
+                    const worldX = x + i * chunkSize;
+                    const worldZ = z + j * chunkSize;
+                    const density = Noise.perlin(worldX / 15, worldZ / 15);
+                    if (density < 0.4) continue; // Patchy grass
+                    const height = getTerrainHeight(worldX, worldZ);
+                    if (height < 0) continue; // No grass underwater
+                    if (instanceIdx >= grassCount) break;
+                    dummy.position.set(worldX, height, worldZ);
+                    dummy.rotation.y = Math.random() * Math.PI * 2;
+                    dummy.updateMatrix();
+                    instancedMesh.setMatrixAt(instanceIdx++, dummy.matrix);
                 }
             }
-        }, { passive: false });
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            instancedMesh.castShadow = true;
+            instancedMesh.receiveShadow = true;
+            scene.add(instancedMesh);
 
-        document.addEventListener('touchend', (event) => {
-            event.preventDefault();
-            for (const touch of event.changedTouches) {
-                if (touch.identifier === lookTouchId) {
-                    lookTouchId = null;
-                } else if (touch.identifier === movementTouchId) {
-                    movementTouchId = null;
-                    movementSpeedForward = 0;
-                    movementYawSpeed = 0;
+            // Water Mesh (only if chunk has low areas)
+            let hasWater = false;
+            for (let k = 0; k < vertices.length; k += 3) {
+                if (vertices[k + 1] < 0) {
+                    hasWater = true;
+                    break;
                 }
             }
-        }, { passive: false });
+            let water = null;
+            if (hasWater) {
+                const waterGeom = new THREE.PlaneGeometry(chunkSize, chunkSize);
+                waterGeom.rotateX(-Math.PI / 2);
+                water = new THREE.Mesh(waterGeom, waterMaterial);
+                water.position.set(i * chunkSize, 0, j * chunkSize);
+                water.receiveShadow = true;
+                scene.add(water);
+            }
 
-        // Animation loop
+            return { terrain, grass: instancedMesh, water };
+        }
+
+        function loadChunk(i, j) {
+            const key = getChunkKey(i, j);
+            if (!loadedChunks[key]) {
+                loadedChunks[key] = createChunk(i, j);
+            }
+        }
+
+        function unloadChunk(i, j) {
+            const key = getChunkKey(i, j);
+            if (loadedChunks[key]) {
+                scene.remove(loadedChunks[key].terrain);
+                scene.remove(loadedChunks[key].grass);
+                if (loadedChunks[key].water) scene.remove(loadedChunks[key].water);
+                delete loadedChunks[key];
+            }
+        }
+
+        function updateChunks() {
+            const cameraChunkI = Math.floor(camera.position.x / chunkSize);
+            const cameraChunkJ = Math.floor(camera.position.z / chunkSize);
+            for (let di = -loadDistance; di <= loadDistance; di++) {
+                for (let dj = -loadDistance; dj <= loadDistance; dj++) {
+                    loadChunk(cameraChunkI + di, cameraChunkJ + dj);
+                }
+            }
+            for (let key in loadedChunks) {
+                const [i, j] = key.split(',').map(Number);
+                if (Math.abs(i - cameraChunkI) > unloadDistance || Math.abs(j - cameraChunkJ) > unloadDistance) {
+                    unloadChunk(i, j);
+                }
+            }
+        }
+
+        // Camera Controls
+        const isTouchDevice = 'ontouchstart' in window;
+        let pointerLocked = false;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let isSprinting = false, canJump = false;
+        let velocity = new THREE.Vector3();
+        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        const sensitivity = 0.002;
+        let lookTouchId = null, moveTouchId = null;
+        let lookStartX = 0, lookStartY = 0, moveStartX = 0, moveStartY = 0;
+        let moveOffsetX = 0, moveOffsetY = 0;
+
+        if (!isTouchDevice) {
+            document.addEventListener('click', () => renderer.domElement.requestPointerLock());
+            document.addEventListener('pointerlockchange', () => {
+                pointerLocked = document.pointerLockElement === renderer.domElement;
+            });
+            document.addEventListener('mousemove', (event) => {
+                if (pointerLocked) {
+                    euler.y -= event.movementX * sensitivity;
+                    euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x - event.movementY * sensitivity));
+                    camera.quaternion.setFromEuler(euler);
+                }
+            });
+            document.addEventListener('keydown', (event) => {
+                switch (event.code) {
+                    case 'KeyW': moveForward = true; break;
+                    case 'KeyS': moveBackward = true; break;
+                    case 'KeyA': moveLeft = true; break;
+                    case 'KeyD': moveRight = true; break;
+                    case 'ShiftLeft': isSprinting = true; break;
+                    case 'Space': if (canJump) { velocity.y += 12; canJump = false; } break;
+                }
+            });
+            document.addEventListener('keyup', (event) => {
+                switch (event.code) {
+                    case 'KeyW': moveForward = false; break;
+                    case 'KeyS': moveBackward = false; break;
+                    case 'KeyA': moveLeft = false; break;
+                    case 'KeyD': moveRight = false; break;
+                    case 'ShiftLeft': isSprinting = false; break;
+                }
+            });
+        } else {
+            renderer.domElement.addEventListener('touchstart', (event) => {
+                event.preventDefault();
+                for (let touch of event.changedTouches) {
+                    const x = touch.clientX;
+                    if (x < window.innerWidth / 2 && lookTouchId === null) {
+                        lookTouchId = touch.identifier;
+                        lookStartX = x;
+                        lookStartY = touch.clientY;
+                    } else if (x >= window.innerWidth / 2 && moveTouchId === null) {
+                        moveTouchId = touch.identifier;
+                        moveStartX = x;
+                        moveStartY = touch.clientY;
+                        moveOffsetX = 0;
+                        moveOffsetY = 0;
+                    }
+                }
+            });
+            renderer.domElement.addEventListener('touchmove', (event) => {
+                event.preventDefault();
+                for (let touch of event.changedTouches) {
+                    if (touch.identifier === lookTouchId) {
+                        const deltaX = touch.clientX - lookStartX;
+                        const deltaY = touch.clientY - lookStartY;
+                        euler.y -= deltaX * sensitivity;
+                        euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x - deltaY * sensitivity));
+                        camera.quaternion.setFromEuler(euler);
+                        lookStartX = touch.clientX;
+                        lookStartY = touch.clientY;
+                    } else if (touch.identifier === moveTouchId) {
+                        moveOffsetX = touch.clientX - moveStartX;
+                        moveOffsetY = touch.clientY - moveStartY;
+                    }
+                }
+            });
+            renderer.domElement.addEventListener('touchend', (event) => {
+                event.preventDefault();
+                for (let touch of event.changedTouches) {
+                    if (touch.identifier === lookTouchId) lookTouchId = null;
+                    else if (touch.identifier === moveTouchId) {
+                        moveTouchId = null;
+                        moveOffsetX = 0;
+                        moveOffsetY = 0;
+                    }
+                }
+            });
+        }
+
+        // Animation Loop
         const clock = new THREE.Clock();
+        camera.position.set(0, getTerrainHeight(0, 0) + 1.6, 5);
+
         function animate() {
             requestAnimationFrame(animate);
             const deltaTime = clock.getDelta();
-            const time = clock.getElapsedTime();
 
             // Update shaders
-            bladeMaterial.uniforms.time.value = time;
-            riverMaterial.uniforms.time.value = time;
+            bladeMaterial.uniforms.time.value = clock.getElapsedTime();
+            waterMaterial.uniforms.time.value = clock.getElapsedTime();
+
+            // Update chunks
+            updateChunks();
 
             // Movement
-            let speedForward = 0, speedStrafe = 0;
-            if (movement.forward) speedForward = 10;
-            else if (movement.backward) speedForward = -10;
-            if (movement.left) speedStrafe = -10;
-            else if (movement.right) speedStrafe = 10;
-
-            if (movementTouchId !== null) {
-                speedForward = movementSpeedForward;
-                camera.rotation.y -= movementYawSpeed * deltaTime; // Apply yaw
-            }
-
-            if (speedForward !== 0 || speedStrafe !== 0) {
-                const forwardDir = camera.getWorldDirection(new THREE.Vector3());
-                camera.position.addScaledVector(forwardDir, speedForward * deltaTime);
-                const rightDir = new THREE.Vector3().crossVectors(camera.up, forwardDir).normalize();
-                camera.position.addScaledVector(rightDir, speedStrafe * deltaTime);
-            }
-
-            // Update terrain chunks
-            const chunkX = Math.floor(camera.position.x / chunkSize);
-            const chunkZ = Math.floor(camera.position.z / chunkSize);
-            for (let x = chunkX - renderDistance; x <= chunkX + renderDistance; x++) {
-                for (let z = chunkZ - renderDistance; z <= chunkZ + renderDistance; z++) {
-                    generateChunk(x, z);
+            if (isTouchDevice && moveTouchId !== null) {
+                const forwardSpeed = -moveOffsetY * 0.015 * 10; // Up is forward
+                const turnSpeed = -moveOffsetX * 0.015;          // Left/right yaws
+                euler.y += turnSpeed * deltaTime;
+                camera.quaternion.setFromEuler(euler);
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                forward.y = 0;
+                forward.normalize();
+                velocity.x = forward.x * forwardSpeed;
+                velocity.z = forward.z * forwardSpeed;
+            } else if (!isTouchDevice && pointerLocked) {
+                const speed = isSprinting ? 20 : 10;
+                const direction = new THREE.Vector3();
+                if (moveForward) direction.z -= 1;
+                if (moveBackward) direction.z += 1;
+                if (moveLeft) direction.x -= 1;
+                if (moveRight) direction.x += 1;
+                if (direction.length() > 0) {
+                    direction.normalize();
+                    const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                    forward.y = 0;
+                    forward.normalize();
+                    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+                    right.y = 0;
+                    right.normalize();
+                    velocity.x = (direction.x * right.x + direction.z * forward.x) * speed;
+                    velocity.z = (direction.x * right.z + direction.z * forward.z) * speed;
+                } else {
+                    velocity.x = 0;
+                    velocity.z = 0;
                 }
+            } else {
+                velocity.x = 0;
+                velocity.z = 0;
             }
 
-            // Clean up distant chunks (optional optimization)
-            for (const [key, chunk] of chunks) {
-                const [cx, cz] = key.split(',').map(Number);
-                if (Math.abs(cx - chunkX) > renderDistance + 1 || Math.abs(cz - chunkZ) > renderDistance + 1) {
-                    scene.remove(chunk);
-                    chunks.delete(key);
-                }
+            // Apply physics
+            velocity.y -= 9.8 * deltaTime; // Gravity
+            camera.position.x += velocity.x * deltaTime;
+            camera.position.z += velocity.z * deltaTime;
+            camera.position.y += velocity.y * deltaTime;
+
+            // Terrain collision
+            const terrainHeight = getTerrainHeight(camera.position.x, camera.position.z);
+            if (camera.position.y <= terrainHeight + 1.6) {
+                camera.position.y = terrainHeight + 1.6;
+                velocity.y = 0;
+                if (!isTouchDevice) canJump = true;
             }
 
             renderer.render(scene, camera);
         }
-
-        // Initial chunk generation
-        generateChunk(0, 0);
         animate();
-
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
