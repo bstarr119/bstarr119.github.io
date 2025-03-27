@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pac-Man</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            display: block;
+            margin: 0 auto;
+        }
+        body {
+            background: #000;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="448" height="496"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const tileSize = 16;
+        const map = [
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+            [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,1,1,0,1,1,1,2,2,1,1,1,0,1,1,0,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,0,0,0,1,2,2,2,2,2,2,1,0,0,0,0,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,1,1,0,1,2,2,2,2,2,2,1,0,1,1,0,1,1,1,1,1,1],
+            [1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,0,1,1,1,1,1,0,1,1,1,1,0,1],
+            [1,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,1],
+            [1,1,1,0,1,1,0,1,1,0,1,1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1],
+            [1,0,0,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,0,1],
+            [1,0,1,1,1,1,1,1,1,1,1,1,0,1,1,0,1,1,1,1,1,1,1,1,1,1,0,1],
+            [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        ];
+
+        let pacman = {
+            x: 13.5 * tileSize,
+            y: 17 * tileSize,
+            size: tileSize,
+            speed: 2,
+            direction: 0,
+            nextDirection: 0
+        };
+
+        let ghosts = [
+            {x: 13 * tileSize, y: 11 * tileSize, color: 'red', speed: 1.5},
+            {x: 14 * tileSize, y: 11 * tileSize, color: 'pink', speed: 1.5},
+            {x: 13 * tileSize, y: 12 * tileSize, color: 'cyan', speed: 1.5},
+            {x: 14 * tileSize, y: 12 * tileSize, color: 'orange', speed: 1.5}
+        ];
+
+        let score = 0;
+        let dots = [];
+        let gameRunning = true;
+
+        // Initialize dots
+        for (let y = 0; y < map.length; y++) {
+            for (let x = 0; x < map[y].length; x++) {
+                if (map[y][x] === 0) {
+                    dots.push({x: x * tileSize + tileSize/2, y: y * tileSize + tileSize/2});
+                }
+            }
+        }
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowLeft': pacman.nextDirection = 2; break;
+                case 'ArrowRight': pacman.nextDirection = 0; break;
+                case 'ArrowUp': pacman.nextDirection = 3; break;
+                case 'ArrowDown': pacman.nextDirection = 1; break;
+            }
+        });
+
+        // Touch controls
+        let touchStartX, touchStartY;
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const dx = touchX - touchStartX;
+            const dy = touchY - touchStartY;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                pacman.nextDirection = dx > 0 ? 0 : 2;
+            } else {
+                pacman.nextDirection = dy > 0 ? 1 : 3;
+            }
+        }, {passive: false});
+
+        function canMove(x, y) {
+            const mapX = Math.floor(x / tileSize);
+            const mapY = Math.floor(y / tileSize);
+            return mapY >= 0 && mapY < map.length &&
+                   mapX >= 0 && mapX < map[0].length &&
+                   map[mapY][mapX] !== 1;
+        }
+
+        function movePacman() {
+            const directions = [
+                {dx: pacman.speed, dy: 0},  // right
+                {dx: 0, dy: pacman.speed},  // down
+                {dx: -pacman.speed, dy: 0}, // left
+                {dx: 0, dy: -pacman.speed}  // up
+            ];
+
+            // Try next direction if possible
+            const next = directions[pacman.nextDirection];
+            if (canMove(pacman.x + next.dx, pacman.y + next.dy)) {
+                pacman.direction = pacman.nextDirection;
+            }
+
+            // Move in current direction if possible
+            const current = directions[pacman.direction];
+            if (canMove(pacman.x + current.dx, pacman.y + current.dy)) {
+                pacman.x += current.dx;
+                pacman.y += current.dy;
+            }
+
+            // Wrap around screen
+            if (pacman.x < 0) pacman.x = canvas.width - tileSize;
+            if (pacman.x >= canvas.width) pacman.x = 0;
+        }
+
+        function moveGhosts() {
+            ghosts.forEach(ghost => {
+                const dx = pacman.x - ghost.x;
+                const dy = pacman.y - ghost.y;
+                const angle = Math.atan2(dy, dx);
+                
+                ghost.x += Math.cos(angle) * ghost.speed;
+                ghost.y += Math.sin(angle) * ghost.speed;
+
+                // Keep ghosts in bounds
+                if (ghost.x < 0) ghost.x = 0;
+                if (ghost.x > canvas.width - tileSize) ghost.x = canvas.width - tileSize;
+                if (ghost.y < 0) ghost.y = 0;
+                if (ghost.y > canvas.height - tileSize) ghost.y = canvas.height - tileSize;
+
+                // Check collision with Pacman
+                if (Math.hypot(pacman.x - ghost.x, pacman.y - ghost.y) < tileSize) {
+                    gameRunning = false;
+                }
+            });
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw map
+            for (let y = 0; y < map.length; y++) {
+                for (let x = 0; x < map[y].length; x++) {
+                    if (map[y][x] === 1) {
+                        ctx.fillStyle = 'blue';
+                        ctx.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+                    }
+                }
+            }
+
+            // Draw dots
+            ctx.fillStyle = 'white';
+            dots.forEach(dot => {
+                ctx.beginPath();
+                ctx.arc(dot.x, dot.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw Pacman
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(pacman.x, pacman.y, pacman.size/2, 0.2 * Math.PI, 1.8 * Math.PI);
+            ctx.lineTo(pacman.x, pacman.y);
+            ctx.fill();
+
+            // Draw ghosts
+            ghosts.forEach(ghost => {
+                ctx.fillStyle = ghost.color;
+                ctx.beginPath();
+                ctx.arc(ghost.x, ghost.y, tileSize/2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Draw score
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.fillText(`Score: ${score}`, 10, 20);
+        }
+
+        function update() {
+            if (!gameRunning) {
+                ctx.fillStyle = 'white';
+                ctx.font = '32px Arial';
+                ctx.fillText('Game Over', canvas.width/2 - 80, canvas.height/2);
+                return;
+            }
+
+            movePacman();
+            moveGhosts();
+
+            // Check for dot collection
+            dots = dots.filter(dot => {
+                if (Math.hypot(pacman.x - dot.x, pacman.y - dot.y) < tileSize/2) {
+                    score += 10;
+                    return false;
+                }
+                return true;
+            });
+
+            draw();
+            requestAnimationFrame(update);
+        }
+
+        update();
+    </script>
+</body>
+</html>
