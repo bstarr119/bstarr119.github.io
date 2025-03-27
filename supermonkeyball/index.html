@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Super Monkey Ball</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Set up the scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas') });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        // Create the platform (a 10x10 plane)
+        const platformGeometry = new THREE.PlaneGeometry(10, 10);
+        const platformMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+        platform.rotation.x = -Math.PI / 2; // Rotate to lie on XZ plane
+        scene.add(platform);
+
+        // Create the ball (a red sphere)
+        const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+        ball.position.set(0, 0.5, 0); // Start at center of platform
+        scene.add(ball);
+
+        // Position camera above the platform, looking down
+        camera.position.set(0, 10, 0);
+        camera.lookAt(0, 0, 0);
+
+        // Physics variables
+        const velocity = new THREE.Vector3(0, 0, 0);
+        let gravity = new THREE.Vector3(0, -1, 0); // Default gravity downward
+        const clock = new THREE.Clock();
+
+        // Desktop controls setup
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false
+        };
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key in keys) keys[e.key] = true;
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key in keys) keys[e.key] = false;
+        });
+
+        let tiltX = 0; // Tilt around X-axis (forward/back)
+        let tiltZ = 0; // Tilt around Z-axis (left/right)
+        const maxTilt = Math.PI / 6; // Max tilt angle (30 degrees)
+        const tiltSpeed = 0.01; // Tilt adjustment speed
+
+        function updateTilt() {
+            // Update tilt based on key presses
+            if (keys.ArrowUp) {
+                tiltX = Math.min(tiltX + tiltSpeed, maxTilt);
+            } else if (keys.ArrowDown) {
+                tiltX = Math.max(tiltX - tiltSpeed, -maxTilt);
+            } else {
+                tiltX *= 0.9; // Dampen tilt back to zero
+            }
+
+            if (keys.ArrowLeft) {
+                tiltZ = Math.max(tiltZ - tiltSpeed, -maxTilt);
+            } else if (keys.ArrowRight) {
+                tiltZ = Math.min(tiltZ + tiltSpeed, maxTilt);
+            } else {
+                tiltZ *= 0.9; // Dampen tilt back to zero
+            }
+        }
+
+        // Detect if device is mobile (supports accelerometer)
+        const isMobile = 'DeviceMotionEvent' in window;
+
+        if (isMobile) {
+            window.addEventListener('devicemotion', (event) => {
+                const acc = event.accelerationIncludingGravity;
+                const k = 0.1; // Scaling factor for accelerometer
+                gravity.set(
+                    -k * acc.x,  // Left tilt -> negative X
+                    k * acc.y,   // Adjust vertical gravity
+                    k * acc.z    // Forward tilt -> positive Z
+                );
+            });
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+
+            // Update gravity based on controls
+            if (!isMobile) {
+                updateTilt();
+                const g = 1; // Gravity magnitude
+                gravity.set(
+                    Math.sin(tiltZ) * Math.cos(tiltX),  // X component
+                    -Math.cos(tiltZ) * Math.cos(tiltX), // Y component (downward)
+                    Math.sin(tiltX)                     // Z component
+                ).multiplyScalar(g);
+            }
+
+            // Update ball physics
+            const onPlatform = ball.position.x >= -5 && ball.position.x <= 5 &&
+                              ball.position.z >= -5 && ball.position.z <= 5;
+            let acceleration;
+            if (onPlatform) {
+                ball.position.y = 0.5; // Keep ball on platform
+                velocity.y = 0;        // Reset vertical velocity
+                acceleration = new THREE.Vector3(gravity.x, 0, gravity.z); // Horizontal only
+            } else {
+                acceleration = gravity.clone(); // Full gravity when falling
+            }
+            velocity.addScaledVector(acceleration, dt);
+            ball.position.addScaledVector(velocity, dt);
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
