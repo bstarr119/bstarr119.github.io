@@ -1,272 +1,191 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mario Kart 3D</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: #87CEEB; /* Sky blue background */
-        }
-        canvas {
-            width: 100%;
-            height: 100%;
-        }
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: white;
-            font-family: Arial, sans-serif;
-            font-size: 16px;
-            text-shadow: 1px 1px 2px black;
-        }
-        #controls {
-            display: none; /* Hidden by default on desktop */
-        }
-        @media (max-width: 600px) {
-            #controls {
-                display: block;
-                position: absolute;
-                bottom: 10px;
-                width: 100%;
-                text-align: center;
-            }
-            #controls button {
-                width: 60px;
-                height: 60px;
-                margin: 5px;
-                font-size: 12px;
-                background: #ffffff;
-                border: 2px solid #000;
-                border-radius: 10px;
-                cursor: pointer;
-                opacity: 0.8;
-            }
-            #controls button:active {
-                background: #cccccc;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mario Kart 3D</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #score { position: absolute; top: 10px; left: 10px; color: white; font-size: 24px; }
+    #controls { position: absolute; bottom: 10px; left: 10px; display: flex; flex-direction: column; }
+    #controls button { margin: 5px; padding: 10px; font-size: 18px; }
+  </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <div id="ui">
-        <p id="speed">Speed: 0</p>
-        <p id="time">Time: 0</p>
+  <!-- Score display -->
+  <div id="score">Score: 0</div>
+
+  <!-- Touch controls for mobile -->
+  <div id="controls">
+    <button id="up">Up</button>
+    <button id="down">Down</button>
+    <div style="display: flex;">
+      <button id="left">Left</button>
+      <button id="right">Right</button>
     </div>
-    <div id="controls">
-        <button id="left">Left</button>
-        <button id="right">Right</button>
-        <button id="accelerate">Go</button>
-        <button id="brake">Brake</button>
-    </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
-    <script>
-        // Scene Setup
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas') });
-        renderer.setSize(window.innerWidth, window.innerHeight);
+  </div>
 
-        // Physics World
-        const world = new CANNON.World();
-        world.gravity.set(0, -9.82, 0);
+  <!-- Load Three.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-        directionalLight.position.set(0, 50, 50);
-        scene.add(directionalLight);
+  <!-- Game script -->
+  <script>
+    // Set up the scene, camera, and renderer
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
 
-        // Track
-        const trackGeometry = new THREE.PlaneGeometry(200, 200);
-        const trackMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-        const track = new THREE.Mesh(trackGeometry, trackMaterial);
-        track.rotation.x = -Math.PI / 2;
-        scene.add(track);
+    // Create the track (a simple green plane)
+    const trackGeometry = new THREE.PlaneGeometry(100, 100);
+    const trackMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const track = new THREE.Mesh(trackGeometry, trackMaterial);
+    track.rotation.x = -Math.PI / 2; // Make it horizontal
+    scene.add(track);
 
-        const trackBody = new CANNON.Body({ mass: 0 });
-        trackBody.addShape(new CANNON.Plane());
-        trackBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-        world.addBody(trackBody);
+    // Create the player kart (a red box)
+    const kartGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+    const kartMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const kart = new THREE.Mesh(kartGeometry, kartMaterial);
+    kart.position.y = 0.25; // Position above track
+    scene.add(kart);
 
-        // Walls
-        const wallGeometry = new THREE.BoxGeometry(2, 2, 200);
-        const wallMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        
-        const leftWall = new THREE.Mesh(wallGeometry, wallMaterial);
-        leftWall.position.set(-100, 1, 0);
-        scene.add(leftWall);
-        
-        const rightWall = new THREE.Mesh(wallGeometry, wallMaterial);
-        rightWall.position.set(100, 1, 0);
-        scene.add(rightWall);
+    // Create an AI kart (a blue box)
+    const aiKartGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+    const aiKartMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+    const aiKart = new THREE.Mesh(aiKartGeometry, aiKartMaterial);
+    aiKart.position.set(10, 0.25, 0); // Start at first waypoint
+    scene.add(aiKart);
 
-        const wallShape = new CANNON.Box(new CANNON.Vec3(1, 1, 100));
-        const leftWallBody = new CANNON.Body({ mass: 0 });
-        leftWallBody.addShape(wallShape);
-        leftWallBody.position.set(-100, 1, 0);
-        world.addBody(leftWallBody);
+    // Define waypoints for AI kart to follow
+    const waypoints = [
+      {x: 10, z: 0},
+      {x: 0, z: 10},
+      {x: -10, z: 0},
+      {x: 0, z: -10}
+    ];
+    let aiTargetIndex = 0;
 
-        const rightWallBody = new CANNON.Body({ mass: 0 });
-        rightWallBody.addShape(wallShape);
-        rightWallBody.position.set(100, 1, 0);
-        world.addBody(rightWallBody);
+    // Create collectible coins (yellow cubes)
+    const coinGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const coinMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const coins = [];
+    function createCoin(x, z) {
+      const coin = new THREE.Mesh(coinGeometry, coinMaterial);
+      coin.position.set(x, 0.25, z);
+      scene.add(coin);
+      coins.push(coin);
+    }
+    createCoin(5, 0);
+    createCoin(-5, 0);
+    createCoin(0, 5);
+    createCoin(0, -5);
 
-        // Kart
-        const kartGeometry = new THREE.BoxGeometry(2, 1, 4);
-        const kartMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const kart = new THREE.Mesh(kartGeometry, kartMaterial);
-        scene.add(kart);
+    // Set up controls
+    const keys = {
+      ArrowUp: false,
+      ArrowDown: false,
+      ArrowLeft: false,
+      ArrowRight: false
+    };
 
-        const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.5, 2));
-        const chassisBody = new CANNON.Body({ mass: 1 });
-        chassisBody.addShape(chassisShape);
-        chassisBody.position.set(0, 2, 0);
-        world.addBody(chassisBody);
+    // Keyboard controls for desktop
+    window.addEventListener('keydown', (event) => {
+      if (event.key in keys) keys[event.key] = true;
+    });
+    window.addEventListener('keyup', (event) => {
+      if (event.key in keys) keys[event.key] = false;
+    });
 
-        const vehicle = new CANNON.RaycastVehicle({ chassisBody });
-        const wheelOptions = {
-            radius: 0.5,
-            directionLocal: new CANNON.Vec3(0, -1, 0),
-            suspensionStiffness: 30,
-            suspensionRestLength: 0.3,
-            frictionSlip: 5,
-            dampingRelaxation: 2.3,
-            dampingCompression: 4.4,
-            maxSuspensionForce: 100000,
-            rollInfluence: 0.01,
-            axleLocal: new CANNON.Vec3(1, 0, 0),
-            chassisConnectionPointLocal: new CANNON.Vec3(),
-            maxSuspensionTravel: 0.3,
-            customSlidingRotationalSpeed: -30,
-            useCustomSlidingRotationalSpeed: true
-        };
+    // Touch controls for mobile
+    const upButton = document.getElementById('up');
+    const downButton = document.getElementById('down');
+    const leftButton = document.getElementById('left');
+    const rightButton = document.getElementById('right');
+    upButton.addEventListener('touchstart', () => { keys.ArrowUp = true; });
+    upButton.addEventListener('touchend', () => { keys.ArrowUp = false; });
+    downButton.addEventListener('touchstart', () => { keys.ArrowDown = true; });
+    downButton.addEventListener('touchend', () => { keys.ArrowDown = false; });
+    leftButton.addEventListener('touchstart', () => { keys.ArrowLeft = true; });
+    leftButton.addEventListener('touchend', () => { keys.ArrowLeft = false; });
+    rightButton.addEventListener('touchstart', () => { keys.ArrowRight = true; });
+    rightButton.addEventListener('touchend', () => { keys.ArrowRight = false; });
 
-        wheelOptions.chassisConnectionPointLocal.set(-1, 0, 1.5); // Front left
-        vehicle.addWheel(wheelOptions);
-        wheelOptions.chassisConnectionPointLocal.set(1, 0, 1.5);  // Front right
-        vehicle.addWheel(wheelOptions);
-        wheelOptions.chassisConnectionPointLocal.set(-1, 0, -1.5); // Rear left
-        vehicle.addWheel(wheelOptions);
-        wheelOptions.chassisConnectionPointLocal.set(1, 0, -1.5);  // Rear right
-        vehicle.addWheel(wheelOptions);
+    // Game variables
+    const maxSpeed = 0.5;
+    const acceleration = 0.01;
+    const deceleration = 0.005;
+    const turnSpeed = 0.05;
+    let velocity = 0;
+    let score = 0;
 
-        vehicle.addToWorld(world);
+    // Game loop
+    function animate() {
+      requestAnimationFrame(animate);
 
-        // Power-Up
-        const powerUpGeometry = new THREE.SphereGeometry(1, 32, 32);
-        const powerUpMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-        const powerUp = new THREE.Mesh(powerUpGeometry, powerUpMaterial);
-        powerUp.position.set(0, 1, 50);
-        scene.add(powerUp);
-
-        const powerUpShape = new CANNON.Sphere(1);
-        const powerUpBody = new CANNON.Body({ mass: 0 });
-        powerUpBody.addShape(powerUpShape);
-        powerUpBody.position.set(0, 1, 50);
-        world.addBody(powerUpBody);
-
-        // Input Handling
-        const keys = {};
-        window.addEventListener('keydown', (e) => { keys[e.key] = true; });
-        window.addEventListener('keyup', (e) => { keys[e.key] = false; });
-
-        // Touch Controls
-        document.getElementById('left').addEventListener('touchstart', () => { keys['ArrowLeft'] = true; });
-        document.getElementById('left').addEventListener('touchend', () => { keys['ArrowLeft'] = false; });
-        document.getElementById('right').addEventListener('touchstart', () => { keys['ArrowRight'] = true; });
-        document.getElementById('right').addEventListener('touchend', () => { keys['ArrowRight'] = false; });
-        document.getElementById('accelerate').addEventListener('touchstart', () => { keys['ArrowUp'] = true; });
-        document.getElementById('accelerate').addEventListener('touchend', () => { keys['ArrowUp'] = false; });
-        document.getElementById('brake').addEventListener('touchstart', () => { keys['ArrowDown'] = true; });
-        document.getElementById('brake').addEventListener('touchend', () => { keys['ArrowDown'] = false; });
-
-        // UI Elements
-        const speedText = document.getElementById('speed');
-        const timeText = document.getElementById('time');
-        let startTime = Date.now();
-
-        // Power-Up Collision
-        chassisBody.addEventListener('collide', (event) => {
-            if (event.body === powerUpBody) {
-                vehicle.applyEngineForce(-200, 2);
-                vehicle.applyEngineForce(-200, 3);
-                scene.remove(powerUp); // Remove power-up visually
-                world.removeBody(powerUpBody); // Remove from physics
-                setTimeout(() => {
-                    vehicle.applyEngineForce(0, 2);
-                    vehicle.applyEngineForce(0, 3);
-                }, 2000); // Boost lasts 2 seconds
-            }
-        });
-
-        // Camera Follow
-        function updateCamera() {
-            const offset = new THREE.Vector3(0, 5, 10);
-            const kartMatrix = new THREE.Matrix4().makeRotationFromQuaternion(kart.quaternion);
-            const cameraPosition = kart.position.clone().add(offset.applyMatrix4(kartMatrix));
-            camera.position.copy(cameraPosition);
-            camera.lookAt(kart.position);
+      // Player kart movement
+      if (keys.ArrowUp) {
+        velocity += acceleration;
+        if (velocity > maxSpeed) velocity = maxSpeed;
+      } else if (keys.ArrowDown) {
+        velocity -= acceleration;
+        if (velocity < 0) velocity = 0;
+      } else {
+        if (velocity > 0) {
+          velocity -= deceleration;
+          if (velocity < 0) velocity = 0;
         }
+      }
+      if (keys.ArrowLeft) {
+        kart.rotation.y += turnSpeed;
+      }
+      if (keys.ArrowRight) {
+        kart.rotation.y -= turnSpeed;
+      }
+      kart.translateZ(velocity); // Move kart in direction it's facing
 
-        // Game Loop
-        function update() {
-            world.step(1 / 60);
+      // AI kart movement
+      const aiSpeed = 0.1;
+      const target = waypoints[aiTargetIndex];
+      const direction = new THREE.Vector3(target.x - aiKart.position.x, 0, target.z - aiKart.position.z);
+      direction.normalize();
+      const angle = Math.atan2(direction.x, direction.z);
+      aiKart.rotation.y = angle;
+      aiKart.translateZ(aiSpeed);
+      if (aiKart.position.distanceTo(new THREE.Vector3(target.x, 0, target.z)) < 1) {
+        aiTargetIndex = (aiTargetIndex + 1) % waypoints.length;
+      }
 
-            // Vehicle Controls
-            if (keys['ArrowUp']) {
-                vehicle.applyEngineForce(-100, 2);
-                vehicle.applyEngineForce(-100, 3);
-            } else if (keys['ArrowDown']) {
-                vehicle.applyEngineForce(100, 2);
-                vehicle.applyEngineForce(100, 3);
-            } else {
-                vehicle.applyEngineForce(0, 2);
-                vehicle.applyEngineForce(0, 3);
-            }
-
-            if (keys['ArrowLeft']) {
-                vehicle.setSteeringValue(0.35, 0);
-                vehicle.setSteeringValue(0.35, 1);
-            } else if (keys['ArrowRight']) {
-                vehicle.setSteeringValue(-0.35, 0);
-                vehicle.setSteeringValue(-0.35, 1);
-            } else {
-                vehicle.setSteeringValue(0, 0);
-                vehicle.setSteeringValue(0, 1);
-            }
-
-            // Sync Kart with Physics
-            kart.position.copy(chassisBody.position);
-            kart.quaternion.copy(chassisBody.quaternion);
-
-            // Update Camera
-            updateCamera();
-
-            // Update UI
-            const speed = chassisBody.velocity.length();
-            speedText.textContent = `Speed: ${speed.toFixed(2)}`;
-            const elapsed = (Date.now() - startTime) / 1000;
-            timeText.textContent = `Time: ${elapsed.toFixed(2)} s`;
-
-            renderer.render(scene, camera);
-            requestAnimationFrame(update);
+      // Coin collection
+      const coinCollectionDistance = 1.0;
+      coins.forEach((coin, index) => {
+        const distance = kart.position.distanceTo(coin.position);
+        if (distance < coinCollectionDistance) {
+          scene.remove(coin);
+          coins.splice(index, 1);
+          score += 1;
+          document.getElementById('score').innerText = `Score: ${score}`;
         }
+      });
 
-        update();
+      // Camera follows player kart
+      const relativeCameraOffset = new THREE.Vector3(0, 2, -5); // Behind and above
+      const cameraOffset = relativeCameraOffset.applyMatrix4(kart.matrixWorld);
+      camera.position.set(cameraOffset.x, cameraOffset.y, cameraOffset.z);
+      camera.lookAt(kart.position);
 
-        // Handle Window Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
+      // Render the scene
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Handle window resizing
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
 </body>
 </html>
