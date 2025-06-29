@@ -92,3 +92,28 @@ footer {
     background-color: #333;
     font-size: 0.9em;
 }
+
+.overlay-text {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+        }
+
+.image-link {
+            position: relative;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+.image-link img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
