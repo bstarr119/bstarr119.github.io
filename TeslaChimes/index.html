@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -50,9 +11,42 @@
     <!-- Open Graph meta tags for rich link preview -->
     <meta property="og:title" content="Cybertruck Kookaburra LockChime">
     <meta property="og:description" content="Download the custom Kookaburra LockChime for your Cybertruck and support me with my Tesla referral link.">
-    <!-- Use an image from the Tesla referral page for the preview -->
     <meta property="og:image" content="https://www.tesla.com/ns_videos/commerce/content/dam/tesla/CAR_ACCESSORIES/MODEL_S/EXTERIOR/0414907-00-A_0.jpg">
     <meta property="og:url" content="https://yourusername.github.io/cybertruck-lockchime">
+    <!-- Include JSZip library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+    </script>
 </head>
 <body>
     <header>
@@ -61,25 +55,71 @@
     </header>
     <main>
         <div class="download-section">
+            <label for="wav-select">Select WAV file:</label>
+            <select id="wav-select"></select>
             <audio controls>
                 <source src="LockChime.wav" type="audio/wav">
                 Your browser does not support the audio element.
             </audio>
-            <a href="LockChime.wav" download="LockChime.wav" class="download-button">
-                <i class="fas fa-download"></i> Download LockChime.wav
-            </a>
+            <button id="download-btn" class="download-button">
+                <i class="fas fa-download"></i> Download ZIP
+            </button>
         </div>
         <!-- Referral section -->
         <div class="referral-section">
             <p>Support me by using my Tesla referral link and share it with your friends!</p>
             <a href="https://ts.la/brandon10331" target="_blank" class="image-link">
                 <img src="https://pbs.twimg.com/card_img/1936681716367986688/dtxmDMVY?format=jpg&name=medium" alt="Tesla Referral Link">
-                    <span class="overlay-text">Brandon's Referral Link</span>
+                <span class="overlay-text">Brandon's Referral Link</span>
             </a>
         </div>
     </main>
     <footer>
         <p>© 2025 Brandon Starr. All rights reserved.</p>
     </footer>
+    <script>
+        // List of WAV files in the directory (update this with your actual file names)
+        const wavFiles = ['kOOKABURRA.wav', 'Win95_Start.wav', 'Win95_Shutdown.wav'];
+        const select = document.getElementById('wav-select');
+        const audio = document.querySelector('audio');
+
+        // Populate dropdown with WAV files
+        wavFiles.forEach(file => {
+            const option = document.createElement('option');
+            option.value = file;
+            option.textContent = file;
+            select.appendChild(option);
+        });
+
+        // Set initial audio source to the first WAV file
+        select.value = wavFiles[0];
+        audio.src = wavFiles[0];
+        audio.load();
+
+        // Update audio source when a new WAV file is selected
+        select.addEventListener('change', function() {
+            const selectedFile = this.value;
+            audio.src = selectedFile;
+            audio.load();
+        });
+
+        // Create and download a zip file when the download button is clicked
+        document.getElementById('download-btn').addEventListener('click', function() {
+            const selectedFile = select.value;
+            const zip = new JSZip();
+            fetch(selectedFile)
+                .then(response => response.blob())
+                .then(blob => {
+                    zip.file(selectedFile, blob);
+                    const zipName = selectedFile.replace('.wav', '') + '_unzip_copy_LockChime_file_to_usb.zip';
+                    zip.generateAsync({type: 'blob'}).then(function(content) {
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(content);
+                        link.download = zipName;
+                        link.click();
+                    });
+                });
+        });
+    </script>
 </body>
 </html>
