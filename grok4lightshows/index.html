@@ -50,12 +50,12 @@
 </head>
 <body>
     <header>
-        <h1>Cybertruck Kookaburra LockChime</h1>
-        <p>Download the custom lock chime audio file for your Cybertruck.</p>
+        <h1>Grok 4 Cybertruck LightShows</h1>
+        <p>Download the grok 4 generated lightshows, dont forget to make a 4min 42sec mp3 to accompany the fseq show file, mp3 needs to be named same as name of fseq file</p>
     </header>
     <main>
         <div class="download-section">
-            <label for="wav-select">Select WAV file:</label>
+            <label for="wav-select">Select Grok 4 LightShow:</label>
             <select id="wav-select"></select>
             <audio controls>
                 <source src="LockChime.wav" type="audio/wav">
@@ -69,7 +69,7 @@
         <div class="referral-section">
             <p>Support me by using my Tesla referral link and share it with your friends!</p>
             <a href="https://ts.la/brandon10331" target="_blank" class="image-link">
-                <img src="tesla_refer.png" alt="Tesla Referral Link">
+                <img src="Tesla_refer.png" alt="Tesla Referral Link">
                 <span class="overlay-text">Brandon's Referral Link</span>
             </a>
         </div>
@@ -79,7 +79,7 @@
     </footer>
     <script>
         // List of WAV files in the directory (update this with your actual file names)
-        const wavFiles = ['kOOKABURRA.wav', 'Win95_Start.wav', 'Win95_Shutdown.wav'];
+        const wavFiles = ['Cold_Play_Universe_feat._Grok_4_v8_BTS_Lead.fseq', 'Cold_Play_Universe_feat._Grok_4_v8_ColdPlay_Lead.fseq'];
         const select = document.getElementById('wav-select');
         const audio = document.querySelector('audio');
 
@@ -111,9 +111,10 @@
                 .then(response => response.blob())
                 .then(blob => {
                     // Add the file to the zip, renaming it to "LockChime.wav"
-                    zip.file("LockChime.wav", blob);
+                    zip.file(selectedFile, blob);
+                    zip.file(selectedFile, blob)
                     
-                    const zipName = selectedFile.replace('.wav', '') + '_unzip_copy_LockChime_file_to_usb.zip';
+                    const zipName = 'unzip_copy_'+selectedFile+'fseq_and_'+selectedFile.replace('.fseq', '') +'.MP3_file_to_LightShow_folder_on_tesla_usb_stick.zip';
                     zip.generateAsync({type: 'blob'}).then(function(content) {
                         const link = document.createElement('a');
                         link.href = URL.createObjectURL(content);
