@@ -89,15 +89,6 @@
 
         // Set initial audio source to the first WAV file
         select.value = wavFiles[0];
-        audio.src = wavFiles[0];
-        audio.load();
-
-        // Update audio source when a new WAV file is selected
-        select.addEventListener('change', function() {
-            const selectedFile = this.value;
-            audio.src = selectedFile;
-            audio.load();
-        });
 
         // Create and download a zip file when the download button is clicked
         document.getElementById('download-btn').addEventListener('click', function() {
