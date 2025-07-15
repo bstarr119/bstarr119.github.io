@@ -112,7 +112,7 @@
                 .then(blob => {
                     // Add the file to the zip, renaming it to "LockChime.wav"
                     zip.file(selectedFile, blob);
-                    zip.file(selectedFile, blob)
+                    zip.file(selectedFile.replace('.fseq','.py'), blob)
                     
                     const zipName = 'unzip_copy_'+selectedFile+'fseq_and_'+selectedFile.replace('.fseq', '') +'.MP3_file_to_LightShow_folder_on_tesla_usb_stick.zip';
                     zip.generateAsync({type: 'blob'}).then(function(content) {
