@@ -65,6 +65,18 @@
                 <i class="fas fa-download"></i> Download ZIP
             </button>
         </div>
+        
+        <div class="download-section">
+            <label for="lightshow-select">Select Tesla LightShow by neuraLS:</label>
+            <select id="lightshow-select"></select>
+            <button id="lightshow-download-btn" class="download-button">
+                <i class="fas fa-download"></i> Download LightShow ZIP
+            </button>
+            <div class="warning-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>In order to run lightshow you cannot have Teslacam folder on the same USB drive. I solve this by renaming Teslacam folder to Teslacam1 to run a show if I do not have another USB drive handy. You can name it back to restore Dashcam/Sentry mode.</p>
+            </div>
+        </div>
         <!-- Referral section -->
         <div class="referral-section">
             <p>Support me by using my Tesla referral link and share it with your friends!</p>
@@ -82,6 +94,16 @@
         const wavFiles = ['kOOKABURRA.wav', 'Win95_Start.wav', 'Win95_Shutdown.wav'];
         const select = document.getElementById('wav-select');
         const audio = document.querySelector('audio');
+        
+        // List of LightShow files by neuraLS
+        const lightShowFiles = [
+            {
+                name: 'YouTube what it sounds like',
+                fseq: 'TeslaLightShows/YouTube_what_it_sounds_like.fseq',
+                mp3: 'TeslaLightShows/YouTube_what_it_sounds_like.mp3'
+            }
+        ];
+        const lightShowSelect = document.getElementById('lightshow-select');
 
         // Populate dropdown with WAV files
         wavFiles.forEach(file => {
@@ -89,6 +111,14 @@
             option.value = file;
             option.textContent = file;
             select.appendChild(option);
+        });
+        
+        // Populate LightShow dropdown
+        lightShowFiles.forEach(show => {
+            const option = document.createElement('option');
+            option.value = show.name;
+            option.textContent = show.name;
+            lightShowSelect.appendChild(option);
         });
 
         // Set initial audio source to the first WAV file
@@ -121,6 +151,38 @@
                         link.click();
                     });
                 });
+        });
+        
+        // Create and download LightShow zip file when the LightShow download button is clicked
+        document.getElementById('lightshow-download-btn').addEventListener('click', function() {
+            const selectedShowName = lightShowSelect.value;
+            const selectedShow = lightShowFiles.find(show => show.name === selectedShowName);
+            
+            if (!selectedShow) return;
+            
+            const zip = new JSZip();
+            const lightShowFolder = zip.folder("LightShow");
+            
+            // Fetch both fseq and mp3 files
+            Promise.all([
+                fetch(selectedShow.fseq).then(response => response.blob()),
+                fetch(selectedShow.mp3).then(response => response.blob())
+            ]).then(([fseqBlob, mp3Blob]) => {
+                // Add files to the LightShow folder
+                lightShowFolder.file("YouTube_what_it_sounds_like.fseq", fseqBlob);
+                lightShowFolder.file("YouTube_what_it_sounds_like.mp3", mp3Blob);
+                
+                const zipName = `unzip and copy LightShow folder to your tesla's USB drive for show ${selectedShowName}.zip`;
+                zip.generateAsync({type: 'blob'}).then(function(content) {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content);
+                    link.download = zipName;
+                    link.click();
+                });
+            }).catch(error => {
+                console.error('Error downloading LightShow files:', error);
+                alert('Error downloading LightShow files. Please try again.');
+            });
         });
     </script>
 </body>
