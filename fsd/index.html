@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cybertruck Kookaburra LockChime</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <meta name="description" content="Download the custom Kookaburra LockChime for your Cybertruck.">
+    <!-- Open Graph meta tags for rich link preview -->
+    <meta property="og:title" content="Cybertruck Kookaburra LockChime">
+    <meta property="og:description" content="Download the custom Kookaburra LockChime for your Cybertruck and support me with my Tesla referral link.">
+    <meta property="og:image" content="https://www.tesla.com/ns_videos/commerce/content/dam/tesla/CAR_ACCESSORIES/MODEL_S/EXTERIOR/0414907-00-A_0.jpg">
+    <meta property="og:url" content="https://yourusername.github.io/cybertruck-lockchime">
+    <!-- Include JSZip library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex));
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+    </script>
+</head>
+<body>
+    <header>
+        <h1>Cybertruck Kookaburra LockChime</h1>
+        <p>Download the custom lock chime audio file for your Cybertruck.</p>
+    </header>
+    <main>
+        <!-- Lightshow Generator section -->
+        <div class="lightshow-generator-section">
+            <h2>🎵 Create Your Own Tesla Lightshow</h2>
+            <p>Want a custom lightshow for your favorite song? Generate a professional Tesla lightshow for any audio file!</p>
+            <a href="https://lightshow-frontend-958951263190.s3.us-east-2.amazonaws.com/index.html" target="_blank" class="lightshow-generator-button">
+                <i class="fas fa-magic"></i>
+                <span class="button-text">
+                    <span class="button-title">Generate Custom Lightshow</span>
+                    <span class="button-subtitle">Upload any song • $0.75 • Professional quality</span>
+                </span>
+                <i class="fas fa-external-link-alt"></i>
+            </a>
+        </div>
+        
+        <div class="download-section">
+            <h3><i class="fas fa-music"></i> Custom Lock Chimes</h3>
+            <p>Download custom lock chime audio files for your Cybertruck</p>
+            <label for="wav-select">Select WAV file:</label>
+            <select id="wav-select"></select>
+            <audio controls>
+                Your browser does not support the audio element.
+            </audio>
+            <button id="download-btn" class="download-button">
+                <i class="fas fa-download"></i> Download ZIP
+            </button>
+        </div>
+        
+        <div class="download-section">
+            <h3><i class="fas fa-lightbulb"></i> Pre-made LightShows</h3>
+            <p>Download ready-to-use Tesla LightShows by neuraLS</p>
+            <label for="lightshow-select">Select Tesla LightShow by neuraLS:</label>
+            <select id="lightshow-select"></select>
+            <button id="lightshow-download-btn" class="download-button">
+                <i class="fas fa-download"></i> Download LightShow ZIP
+            </button>
+            <div class="warning-message">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>In order to run lightshow you cannot have Teslacam folder on the same USB drive. I solve this by renaming Teslacam folder to Teslacam1 to run a show if I do not have another USB drive handy. You can name it back to restore Dashcam/Sentry mode.</p>
+            </div>
+        </div>
+        
+        <!-- Referral section --> 
+        <div class="referral-section">
+            <h2><i class="fas fa-gift"></i> Referrals</h2>
+            <p>Support me by using my referral links and share them with your friends!</p>
+            
+            <!-- Tesla Referral -->
+            <div class="referral-item">
+                <a href="https://ts.la/brandon10331" target="_blank" class="image-link">
+                    <img src="tesla_refer.png" alt="Tesla Referral Link">
+                    <span class="overlay-text">Brandon's Tesla Referral Link</span>
+                </a>
+            </div>
+            
+            <!-- Starlink Referral -->
+            <div class="referral-item">
+                <a href="https://starlink.com/residential?referral=RC-4005487-15691-65&app_source=share" target="_blank" class="rich-link-card">
+                    <div class="rich-link-image-container">
+                        <div class="rich-link-image-fallback">
+                            <i class="fas fa-satellite"></i>
+                            <div class="rich-link-badge">FREE MONTH</div>
+                        </div>
+                    </div>
+                    <div class="rich-link-content">
+                        <div class="rich-link-title">Starlink for Homes</div>
+                        <div class="rich-link-description">Here's one free month of Starlink service! Starlink high-speed internet is great for streaming, video calls, and gaming in even the most remote locations on Earth.</div>
+                        <div class="rich-link-url">
+                            <i class="fas fa-link"></i> starlink.com
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Socials section -->
+        <div class="socials-section">
+            <h2><i class="fas fa-share-alt"></i> Connect With Me</h2>
+            <div class="socials-grid">
+                <a href="https://x.com/bstarr119" target="_blank" class="social-link">
+                    <i class="fab fa-x-twitter"></i>
+                    <span>X (Twitter)</span>
+                </a>
+                <a href="https://youtube.com/@bstarr119" target="_blank" class="social-link">
+                    <i class="fab fa-youtube"></i>
+                    <span>YouTube</span>
+                </a>
+                <a href="https://instagram.com/bstarr119/" target="_blank" class="social-link">
+                    <i class="fab fa-instagram"></i>
+                    <span>Instagram</span>
+                </a>
+                <a href="https://facebook.com/brandonb.starr/" target="_blank" class="social-link">
+                    <i class="fab fa-facebook"></i>
+                    <span>Facebook</span>
+                </a>
+            </div>
+        </div>
+    </main>
+    <footer>
+        <p>© 2025 Brandon Starr. All rights reserved.</p>
+    </footer>
+    <script>
+        // List of WAV files in the directory (update this with your actual file names)
+        const wavFiles = ['kOOKABURRA.wav', 'Win95_Start.wav', 'Win95_Shutdown.wav'];
+        const select = document.getElementById('wav-select');
+        const audio = document.querySelector('audio');
+        
+        // List of LightShow files by neuraLS
+        const lightShowFiles = [
+            {
+                name: 'YouTube what it sounds like',
+                fseq: 'TeslaLightShows/YouTube_what_it_sounds_like.fseq',
+                mp3: 'TeslaLightShows/YouTube_what_it_sounds_like.mp3'
+            }
+        ];
+        const lightShowSelect = document.getElementById('lightshow-select');
+
+        // Populate dropdown with WAV files
+        wavFiles.forEach(file => {
+            const option = document.createElement('option');
+            option.value = file;
+            option.textContent = file;
+            select.appendChild(option);
+        });
+        
+        // Populate LightShow dropdown
+        lightShowFiles.forEach(show => {
+            const option = document.createElement('option');
+            option.value = show.name;
+            option.textContent = show.name;
+            lightShowSelect.appendChild(option);
+        });
+
+        // Set initial audio source to the first WAV file
+        select.value = wavFiles[0];
+        audio.src = wavFiles[0];
+        audio.load();
+
+        // Update audio source when a new WAV file is selected
+        select.addEventListener('change', function() {
+            const selectedFile = this.value;
+            audio.src = selectedFile;
+            audio.load();
+        });
+
+        // Create and download a zip file when the download button is clicked
+        document.getElementById('download-btn').addEventListener('click', function() {
+            const selectedFile = select.value;
+            const zip = new JSZip();
+            fetch(selectedFile)
+                .then(response => response.blob())
+                .then(blob => {
+                    // Add the file to the zip, renaming it to "LockChime.wav"
+                    zip.file("LockChime.wav", blob);
+                    
+                    const zipName = selectedFile.replace('.wav', '') + '_unzip_copy_LockChime_file_to_usb.zip';
+                    zip.generateAsync({type: 'blob'}).then(function(content) {
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(content);
+                        link.download = zipName;
+                        link.click();
+                    });
+                });
+        });
+        
+        // Create and download LightShow zip file when the LightShow download button is clicked
+        document.getElementById('lightshow-download-btn').addEventListener('click', function() {
+            const selectedShowName = lightShowSelect.value;
+            const selectedShow = lightShowFiles.find(show => show.name === selectedShowName);
+            
+            if (!selectedShow) return;
+            
+            const zip = new JSZip();
+            const lightShowFolder = zip.folder("LightShow");
+            
+            // Fetch both fseq and mp3 files
+            Promise.all([
+                fetch(selectedShow.fseq).then(response => response.blob()),
+                fetch(selectedShow.mp3).then(response => response.blob())
+            ]).then(([fseqBlob, mp3Blob]) => {
+                // Add files to the LightShow folder
+                lightShowFolder.file("YouTube_what_it_sounds_like.fseq", fseqBlob);
+                lightShowFolder.file("YouTube_what_it_sounds_like.mp3", mp3Blob);
+                
+                const zipName = `unzip and copy LightShow folder to your tesla's USB drive for show ${selectedShowName}.zip`;
+                zip.generateAsync({type: 'blob'}).then(function(content) {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content);
+                    link.download = zipName;
+                    link.click();
+                });
+            }).catch(error => {
+                console.error('Error downloading LightShow files:', error);
+                alert('Error downloading LightShow files. Please try again.');
+            });
+        });
+    </script>
+</body>
+</html>
