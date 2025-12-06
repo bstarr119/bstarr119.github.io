@@ -227,11 +227,35 @@ audio {
     left: 100%;
 }
 
+.referral-section h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.8em;
+    margin: 0 0 15px 0;
+    color: #ff4d4d;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.referral-section h2 i {
+    font-size: 1.2em;
+}
+
 .referral-section p {
-    font-size: 1.3em;
-    margin-bottom: 20px;
+    font-size: 1.1em;
+    margin-bottom: 25px;
     color: #ccc;
     font-weight: 300;
+}
+
+.referral-item {
+    margin-bottom: 25px;
+}
+
+.referral-item:last-child {
+    margin-bottom: 0;
 }
 
 .referral-section img {
@@ -247,6 +271,160 @@ audio {
     transform: scale(1.05);
     box-shadow: 0 12px 35px rgba(255, 77, 77, 0.4);
     border-color: #ff6b35;
+}
+
+/* Rich Link Card Styles */
+.rich-link-card {
+    display: flex;
+    align-items: center;
+    background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+    border: 2px solid #444;
+    border-radius: 12px;
+    padding: 15px;
+    text-decoration: none;
+    color: #fff;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.rich-link-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 77, 77, 0.3);
+    border-color: #ff4d4d;
+}
+
+.rich-link-image {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #ff4d4d 0%, #ff6b35 100%);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.rich-link-image i {
+    font-size: 2.5em;
+    color: #fff;
+}
+
+.rich-link-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.rich-link-title {
+    font-size: 1.2em;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #fff;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.rich-link-description {
+    font-size: 0.9em;
+    color: #ccc;
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.rich-link-url {
+    font-size: 0.85em;
+    color: #ff4d4d;
+    font-weight: 500;
+}
+
+/* Socials Section */
+.socials-section {
+    text-align: center;
+    margin-top: 40px;
+    padding: 30px;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    border: 1px solid #333;
+    position: relative;
+    overflow: hidden;
+}
+
+.socials-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 77, 77, 0.05), transparent);
+    transition: left 0.6s ease;
+}
+
+.socials-section:hover::before {
+    left: 100%;
+}
+
+.socials-section h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.8em;
+    margin: 0 0 25px 0;
+    color: #ff4d4d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.socials-section h2 i {
+    font-size: 1.2em;
+}
+
+.socials-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.social-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #2a2a2a 0%, #333 100%);
+    border: 2px solid #444;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #fff;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+.social-link:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(255, 77, 77, 0.3);
+    border-color: #ff4d4d;
+    background: linear-gradient(135deg, #ff4d4d 0%, #ff6b35 100%);
+}
+
+.social-link i {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    transition: transform 0.3s ease;
+}
+
+.social-link:hover i {
+    transform: scale(1.1);
+}
+
+.social-link span {
+    font-size: 1em;
+    font-weight: 600;
+    font-family: 'Orbitron', sans-serif;
 }
 
 footer {
@@ -513,8 +691,57 @@ select:hover {
         padding: 20px;
     }
     
+    .referral-section h2 {
+        font-size: 1.5em;
+    }
+    
     .referral-section img {
         width: 280px;
+    }
+    
+    .rich-link-card {
+        flex-direction: column;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .rich-link-image {
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+    
+    .rich-link-title {
+        font-size: 1.1em;
+    }
+    
+    .rich-link-description {
+        font-size: 0.85em;
+    }
+    
+    .socials-section {
+        margin: 20px 10px;
+        padding: 20px;
+    }
+    
+    .socials-section h2 {
+        font-size: 1.5em;
+    }
+    
+    .socials-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+    
+    .social-link {
+        padding: 15px;
+    }
+    
+    .social-link i {
+        font-size: 2em;
+    }
+    
+    .social-link span {
+        font-size: 0.9em;
     }
     
     select {
