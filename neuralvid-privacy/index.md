@@ -30,6 +30,6 @@ NeuralVid is not intended for children under 13. We do not knowingly collect dat
 We may update this policy. Changes will be posted here with a new effective date.
 
 ### Contact Us
-If you have questions, email: brandon@neuralvid.com
+If you have questions, DM: x.com/bstarr119
 
 Thank you for using NeuralVid!

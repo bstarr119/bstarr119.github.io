@@ -74,9 +74,9 @@
             <p>We may update this policy occasionally. We will post the new version on this page with a new "Last updated" date.</p>
 
             <h2 class="text-2xl font-semibold mt-10 mb-4">Contact</h2>
-            <p>If you have any questions about this Privacy Policy, please contact me at:</p>
+            <p>If you have any questions about this Privacy Policy, please DN me at:</p>
             <p class="font-mono bg-zinc-900 p-4 rounded-xl mt-4">
-                brandon@starship.dev
+                x.com/bstarr119
             </p>
 
             <div class="mt-12 text-xs text-zinc-500 border-t border-zinc-800 pt-8">
